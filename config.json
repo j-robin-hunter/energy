@@ -1,0 +1,18 @@
+{
+    "meters": [
+        {"channel":1, "name":"Evolution", "category":"Lighting"},
+        {"channel":2, "name":"Kitchen Island", "category":"Cooking"},
+        {"channel":3, "name":"Ovens", "category":"Cooking"},
+        {"channel":4, "name":"Smoke & CO2", "category":"General"},
+        {"channel":5, "name":"Heating", "category":"Heating"},
+        {"channel":6, "name":"Lights", "category":"Lighting"},
+        {"channel":7, "name":"Kitchen Power", "category":"Power"},
+        {"channel":9, "name":"Over Garage Power", "category":"Power"},
+        {"channel":10, "name":"Upstairs Power", "category":"Power"},
+        {"channel":11, "name":"Downstairs Power", "category":"Power"},
+        {"channel":12, "name":"Washing Machines", "category":"Washing"},
+        {"channel":13, "name":"Living Room & DMX", "category":"Power"},
+        {"channel":14, "name":"Water Heater", "category":"Heating"},
+        {"channel":15, "name":"Bathroom Heaters", "category":"Heating"}
+    ]
+}
