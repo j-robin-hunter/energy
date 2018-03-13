@@ -1,18 +1,34 @@
 {
-    "meters": [
-        {"channel":1, "name":"Evolution", "category":"Lighting"},
-        {"channel":2, "name":"Kitchen Island", "category":"Cooking"},
-        {"channel":3, "name":"Ovens", "category":"Cooking"},
-        {"channel":4, "name":"Smoke & CO2", "category":"General"},
-        {"channel":5, "name":"Heating", "category":"Heating"},
-        {"channel":6, "name":"Lights", "category":"Lighting"},
-        {"channel":7, "name":"Kitchen Power", "category":"Power"},
-        {"channel":9, "name":"Over Garage Power", "category":"Power"},
-        {"channel":10, "name":"Upstairs Power", "category":"Power"},
-        {"channel":11, "name":"Downstairs Power", "category":"Power"},
-        {"channel":12, "name":"Washing Machines", "category":"Washing"},
-        {"channel":13, "name":"Living Room & DMX", "category":"Power"},
-        {"channel":14, "name":"Water Heater", "category":"Heating"},
-        {"channel":15, "name":"Bathroom Heaters", "category":"Heating"}
-    ]
+    "influxdb": {
+        "database" : "meters",
+        "hosturl" : "http://192.168.1.7:8086/",
+        "username" : "robin",
+        "password" : "delta1234"
+    },
+    "enistic": {
+        "port": 53005,
+        "meters": [
+            {"channel": 1, "name": "Living Room & DMX", "category": "Power"},
+            {"channel": 2, "name": "Washing Machines", "category": "Washing"},
+            {"channel": 4, "name": "Water Heater", "category": "Heating"},
+            {"channel": 5, "name": "Kitchen Island","category": "Cooking"},
+            {"channel": 6, "name": "Bathroom Heaters", "category": "Heating"},
+            {"channel": 9, "name": "Kitchen Power", "category": "Power"},
+            {"channel": 10, "name": "Upstairs Power","category": "Power"},
+            {"channel": 11, "name": "Over Garage Power", "category": "Power"},
+            {"channel": 12, "name": "Downstairs Power","category": "Power"},
+            {"channel": 13, "name": "Lighting", "category": "Lighting"},
+            {"channel": 14, "name": "Ovens", "category": "Cooking"},
+            {"channel": 15, "name": "Evolution", "category": "Heating"}
+        ]
+    },
+    "goodwe": {
+        "host": "192.168.1.0/24",
+        "port": 8899,
+        "pvarray": 2200,
+        "battery": {
+            "max_capacity": 126,
+            "max_discharge": 90
+        }
+    }
 }
