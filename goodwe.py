@@ -1,4 +1,24 @@
-from enum import Enum
+#!/usr/bin/env python
+""" A plugin to provide a collector for solar related data using GoodWe inverters
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
+__author__ = "Robin Hunter"
+__contact__ = "rhunter@crml.com"
+__copyright__ = "Copyright 2018, Roma Technology Limited"
+__license__ = "GPLv3"
+__status__ = "Production"
+__version__ = "1.0.0"
+from abstract import AbstractCollector
 import time
 import socket
 import ipaddress
@@ -10,18 +30,23 @@ def millis():
     return int(round(time.time() * 1000))
 
 
-def tofloat(buffer):
-    val = (buffer[0] & 0x7f) << 8 | buffer[1]
-    if buffer[0] > 0x7f:
-        val *= -1
-    return val
+def calculate_crc(buffer):
+    crc = 0
+    for i in range(len(buffer)):
+        crc += buffer[i]
+    return crc
 
 
-def tofloat4(buffer):
-    val = (buffer[0] & 0x7f) << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[3]
-    if buffer[0] > 0x7f:
-        val *= -1
-    return val
+def append_crc(buffer):
+    buffer.extend(calculate_crc(buffer).to_bytes(2, byteorder='big'))
+
+
+class NoInverterError(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return self.value
 
 
 class MalFormedError(Exception):
@@ -32,255 +57,273 @@ class MalFormedError(Exception):
         return repr(self.value)
 
 
-class IDInfo(object):
-    def __init__(self):
-        self.firmwareVersion = ""
-        self.modelName = ""
-        self.manufacturer = ""
-        self.serialNumber = ""
-        self.nominalVpv = 0
-        self.internalVersion = ""
-        self.safetyCountryCode = 0x0
+class Plugin(AbstractCollector):
+    # GoodWe control and function codes
+    CC_REG = 0x00
+    CC_READ = 0x01
+    FC_QRYOFF = 0x00
+    FC_RESOFF = 0x80
+    FC_QRYID = 0x02
+    FC_RESID = 0x82
+    FC_QRYRUN = 0x01
+    FC_RESRUN = 0x81
+    FC_RESIGN = 0x86
 
+    # Goodwe binary packet constants
+    HEADER = bytearray([0xaa, 0x55])
+    PACKET_OVERHEAD = 9
 
-class DataTypes(Enum):
-    FLOAT = 0
-    FLOAT4 = 1
-    SHORT = 3
-    CHAR = 4
-    STRING = 5
-    LONG = 6
+    # GoodWe binary packet types
+    CHAR = 0
+    SHORT = 1
+    LONG = 2
 
-
-class RunInfo(object):
+    # GoodWe single phase run response packet data items decode dictionary. It contains the
+    # name of the packet, it's size and a 'divisor' needed to return the data to the precision
+    # units specified in the GoodWe protocol.
     single_phase = {
-        "Vpv1": [DataTypes.FLOAT, 10],
-        "Vpv2": [DataTypes.FLOAT, 10],
-        "Ipv1": [DataTypes.FLOAT, 10],
-        "Ipv2": [DataTypes.FLOAT, 10],
-        "Vac1": [DataTypes.FLOAT, 10],
-        "Iac1": [DataTypes.FLOAT, 10],
-        "Fac1": [DataTypes.FLOAT, 100],
-        "PGrid": [DataTypes.FLOAT, 10],
-        "WorkMode": [DataTypes.SHORT, 1],
-        "Temperature": [DataTypes.FLOAT, 10],
-        "ErrorMessage": [DataTypes.LONG, 1],
-        "ETotal": [DataTypes.FLOAT4, 1],
-        "HTotal": [DataTypes.FLOAT4, 1],
-        "SoftVersion": [DataTypes.SHORT, 1],
-        "WarningCode": [DataTypes.SHORT, 1],
-        "PV2FaultValue": [DataTypes.FLOAT, 10],
-        "FunctionsBitValue": [DataTypes.SHORT, 1],
-        "BUSVoltage": [DataTypes.FLOAT, 10],
-        "GFCICheckValue_SafetyCountry": [DataTypes.SHORT, 1],
-        "EDay": [DataTypes.FLOAT, 10],
-        "Vbattery1": [DataTypes.FLOAT, 10],
-        "Ibattery1": [DataTypes.FLOAT, 10],
-        "SOC1": [DataTypes.FLOAT, 1],
-        "Errorcode": [DataTypes.SHORT, 1],
-        "PVTotal": [DataTypes.FLOAT, 10],
-        "LoadPower": [DataTypes.FLOAT4, 1],
-        "E_Load_Day": [DataTypes.FLOAT, 10],
-        "E_Total_Load": [DataTypes.FLOAT4, 10],
-        "InverterPower": [DataTypes.FLOAT, 1],
-        "Vload": [DataTypes.FLOAT, 10],
-        "Iload": [DataTypes.FLOAT, 10],
-        "OperationMode": [DataTypes.SHORT, 1],
-        "BMS_Alarm": [DataTypes.SHORT, 1],
-        "BMS_Warning": [DataTypes.SHORT, 1],
-        "SOH": [DataTypes.FLOAT, 1],
-        "BMS_Temperature": [DataTypes.FLOAT, 10],
-        "BMS_Charge_I_Max": [DataTypes.FLOAT, 1],
-        "BMS_Discharge_I_Max": [DataTypes.FLOAT, 1],
-        "Battery_Work_Mode": [DataTypes.SHORT, 1],
-        "Pmeter": [DataTypes.FLOAT, 10]
+        "Vpv1": [SHORT, 10],
+        "Vpv2": [SHORT, 10],
+        "Ipv1": [SHORT, 10],
+        "Ipv2": [SHORT, 10],
+        "Vac1": [SHORT, 10],
+        "Iac1": [SHORT, 10],
+        "Fac1": [SHORT, 100],
+        "PGrid": [SHORT, 1],
+        "WorkMode": [SHORT, 1],
+        "Temperature": [SHORT, 10],
+        "ErrorMessage": [LONG, 1],
+        "ETotal": [LONG, 10],
+        "HTotal": [LONG, 1],
+        "SoftVersion": [SHORT, 1],
+        "WarningCode": [SHORT, 1],
+        "PV2FaultValue": [SHORT, 10],
+        "FunctionsBitValue": [SHORT, 1],
+        "BUSVoltage": [SHORT, 10],
+        "GFCICheckValue_SafetyCountry": [SHORT, 1],
+        "EDay": [SHORT, 10],
+        "Vbattery1": [SHORT, 10],
+        "Errorcode": [SHORT, 1],
+        "SOC1": [SHORT, 1],
+        "Ibattery1": [SHORT, 10],
+        "PVTotal": [SHORT, 10],
+        "LoadPower": [LONG, 1],
+        "E_Load_Day": [SHORT, 10],
+        "E_Total_Load": [LONG, 10],
+        "InverterPower": [SHORT, 1],
+        "Vload": [SHORT, 10],
+        "Iload": [SHORT, 10],
+        "OperationMode": [SHORT, 1],
+        "BMS_Alarm": [SHORT, 1],
+        "BMS_Warning": [SHORT, 1],
+        "SOH1": [SHORT, 1],
+        "BMS_Temperature": [SHORT, 10],
+        "BMS_Charge_I_Max": [SHORT, 1],
+        "BMS_Discharge_I_Max": [SHORT, 1],
+        "Battery_Work_Mode": [SHORT, 1],
+        "Pmeter": [SHORT, 1]
     }
-    three_phase = {}
 
-    def __init__(self):
-        self.reading = dict()
-
-
-class State(Enum):
-    OFFLINE = 1
-    CONNECTED = 2
-    RUNNING = 9
-
-
-# MESSAGE HEADER
-HEADER = bytearray([0xaa, 0x55])
-
-# CONTROL CODES
-CC_REG = 0x00
-CC_READ = 0x01
-
-# REGISTER FUNCTION CODES
-FC_QRYOFF = 0x00
-FC_RESOFF = 0x80
-FC_QRYID = 0x02
-FC_RESID = 0x82
-FC_QRYRUN = 0x01
-FC_RESRUN = 0x81
-
-
-class Inverter:
+    # Program constants
     BUFFERSIZE = 1024
-    AP_ADDRESS = 0x7f  # our address
-    INVERTER_ADDRESS = 0x80  # inverter address. We only have one inverter using USB.
-    OFFLINE_TIMEOUT = 30000  # Re-verify connectivity and ID info
-    DISCOVERY_INTERVAL = 10000  # 10 secs between discovery
-    PAUSE = 1000  # Re-query pause time
+    OFFLINE_TIMEOUT = 30000
 
-    def __init__(self, config):
-        self.config = config
-        self.state = State.OFFLINE
+    OFFLINE = 1
+    RUNNING = 2
+
+    def __init__(self, myname, queues, formatters, config):
+        super().__init__(myname, queues, formatters, config)
+        self.state = self.OFFLINE
         self.statetime = millis()
         self.lastReceived = millis()
 
-        self.idinfo = IDInfo()
-        self.runinfo = RunInfo()
+        self.ap_address = 0x7f
+        self.inverter_address = 0xB0
 
+        self.idinfo = {}
+        self.reading = {}
+
+        # Set socket up to allow UDP with broadcast
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.settimeout(10.0)
+
+        # Set socket timeout to maximum expected data response delay from inverter as per protocol specifications
+        self.sock.settimeout(0.5)
 
         try:
-            self.addr = str(
-                ipaddress.IPv4Network(self.config['host'], strict=False).broadcast_address,
-                self.config['port'])
+            # Using broadcast will allow setting of either a single address or a bit masked address
+            # for the inverter in the configuration
+            self.addr = (str(ipaddress.IPv4Network(self.config['host'], strict=False).broadcast_address),
+                         self.config['port'])
         except Exception:
-            raise RuntimeError('Unable to locate inverter on network')
+            logging.error('Unable to locate inverter on network')
+            raise NoInverterError('Unable to locate inverter on network')
 
     def __del__(self):
-        self.sock.close()
-
-    def handle(self):
         try:
-            if (millis() - self.statetime) > self.OFFLINE_TIMEOUT:
-                self.state = State.OFFLINE
+            if self.sock is not None:
+                self.sock.close()
+        except Exception as e:
+            logging.error('Encountered error while disposing %s: %s' % (self.myname, str(e)))
 
-            if self.state == State.OFFLINE:
-                self.offline_query()
-            elif self.state == State.CONNECTED:
-                self.query_id()
-            else:
-                self.query_run()
-                time.sleep(self.DISCOVERY_INTERVAL / 1000)
-        except MalFormedError as e:
-            logging.info(e.__str__())
-            pass  # Ignore malformed response errors
+    def run(self):
+        # The inverter protocol suggests that communication is 'reset' every 30 seconds
+        try:
+            while not self.terminate.is_set():
+                if (millis() - self.statetime) > self.OFFLINE_TIMEOUT:
+                    self.state = self.OFFLINE
+
+                if self.state == self.OFFLINE:
+                    self._send(self.CC_REG, self.FC_QRYOFF)
+                    self._send(self.CC_READ, self.FC_QRYID)
+                    self.state = self.RUNNING
+                    self.statetime = millis()
+
+                self._send(self.CC_READ, self.FC_QRYRUN)
+
+                if self.reading:
+                    self._data_send(self.reading)
+                    self.reading = {}
+
+                time.sleep(10)
+            logging.info('Plugin "%s" is terminating following signal' % self.myname)
+        except Exception as e:
+            logging.error('Exception caught %s: %s' % (type(e), e))
+
+    def _send(self, control_code, function_code):
+        try:
+            self._send_udp(control_code, function_code)
+            self._receive(function_code)
         except Exception:
             raise
 
-    def query_run(self):
+    def _receive(self, function_code):
         try:
-            response = self._send(CC_READ, FC_QRYRUN, [])
-            if response[5] != FC_RESRUN:
-                raise MalFormedError('Invalid inverter response from run query')
-            self.runinfo.timestamp = millis()
+            # If the received response is not the one expected based on the last query sent than
+            # stay in this loop processing any received data until the correct response is received
+            # or a socket timeout has occured. This is done to ensure that synchronisation between
+            # queries and responses is not lost due to sending delays from the inverter
+            while True:
+                response = self._receive_udp()
+                self._check_valid_response(response)
 
-            # Hard coded array indexes below are ok as the data length has been verified
-            # and the indexes are defined by the protocol
-            ptr = 7
-            for key, value in self.runinfo.single_phase.items():
-                if value[0] == DataTypes.FLOAT:
-                    self.runinfo.reading[key] = tofloat(response[ptr:]) / value[1]
-                    ptr += 2
-                elif value[0] == DataTypes.FLOAT4:
-                    self.runinfo.reading[key] = tofloat4(response[ptr:]) / value[1]
-                    ptr += 4
-                elif value[0] == DataTypes.SHORT:
-                    # ignore any divisor
-                    self.runinfo.reading[key] = int(tofloat(response[ptr:]))
-                    ptr += 2
-                elif value[0] == DataTypes.CHAR:
-                    self.runinfo.reading[key] = response[ptr:ptr + 1]
-                    ptr += 1
-                elif value[0] == DataTypes.LONG:
-                    # Ignore any divisor
-                    self.runinfo.reading[key] = int(tofloat4(response[ptr:]))
-                    ptr += 4
-                else:
+                # No need to check index length as _check_valid_response will do this
+                if response[5] == self.FC_RESRUN:
+                    self._run(response)
+                    if function_code == self.FC_QRYRUN:
+                        break
+                elif response[5] == self.FC_RESID:
+                    self._id(response)
+                    if function_code == self.FC_QRYID:
+                        break
+                elif response[5] == self.FC_RESOFF:
+                    self._offline(response)
+                    if function_code == self.FC_QRYOFF:
+                        break
+                elif response[5] == self.FC_RESIGN:
+                    # Inverter likes to send an 0x86 response which may be a later than documented
+                    # protocol change. This is similar to an 0x81 response in terms of data but
+                    # format cannot be verified against documentation from GoodWe which is subject to NDA.
+                    # This response is ignored.
                     pass
-
-            time.sleep(self.DISCOVERY_INTERVAL / 1000)
-        except socket.timeout as e:
-            logging.info(e.__str__())
-            pass  # Ignore timeout errors
+                else:
+                    if function_code == self.FC_QRYOFF:
+                        msg = 'offline'
+                    elif function_code == self.FC_QRYID:
+                        msg = 'id'
+                    elif function_code == self.FC_QRYRUN:
+                        msg = 'run'
+                    else:
+                        msg = 'unexpected'
+                    raise MalFormedError('Invalid inverter response from ' + msg + ' query')
+        except socket.timeout:
+            pass
+        except MalFormedError as e:
+            logging.error(str(e))
+            pass
         except Exception:
             raise  # Raise all other errors
 
-    def query_id(self):
-        try:
-            response = self._send(CC_READ, FC_QRYID, [])
-            if response[5] != FC_RESID:
-                raise MalFormedError('Invalid inverter response from id query')
+    def _run(self, response):
+        # Only get inverter information if the serial number and inverter model are known
+        if self.idinfo.get('serialNumber', None) is not None and self.idinfo.get('modelName', None) is not None:
+            try:
+                self.reading = dict(
+                    timestamp=millis(),
+                    serial=self.idinfo['serialNumber'],
+                    model=self.idinfo['modelName'])
+                # Hard coded array indexes below are ok as the data length has been verified
+                # and the indexes are defined by the protocol
+                ptr = 7
+                for key, value in self.single_phase.items():
+                    if value[0] == self.CHAR:
+                        self.reading[key] = int(response[ptr:ptr + 1])
+                        ptr += 1
+                    elif value[0] == self.SHORT:
+                        self.reading[key] = struct.unpack('!h', response[ptr:ptr+2])
+                        ptr += 2
+                    elif value[0] == self.LONG:
+                        self.reading[key] = struct.unpack('!i', response[ptr:ptr + 4])
+                        ptr += 4
+                    else:
+                        pass
 
+                    if value[1] > 1:
+                        self.reading[key] = self.reading[key][0] / value[1]
+                    else:
+                        self.reading[key] = self.reading[key][0]
+            except Exception:
+                raise  # Raise all other errors
+
+    def _id(self, response):
+        try:
             # Hard coded array indexes below are ok as the data length has been verified
             # and the indexes are defined by the protocol
             response = response[7:]
-            self.idinfo.firmwareVersion = "".join(map(chr, response[0:5]))
-            self.idinfo.modelName = "".join(map(chr, response[5:15]))
-            self.idinfo.manufacturer = "".join(map(chr, response[15:31]))
-            self.idinfo.serialNumber = "".join(map(chr, response[31:47]))
-            self.idinfo.nominalVpv = "".join(map(chr, response[47:51]))
-            self.idinfo.internalVersion = "".join(map(chr, response[51:63]))
-            self.idinfo.safetyCountryCode = response[63]
-
-            self.state = State.RUNNING
-            time.sleep(self.PAUSE / 1000)
-        except socket.timeout as e:
-            logging.info(e.__str__())
-            pass  # Ignore timeout errors
+            self.idinfo = dict(
+                firmwareVersion=response[0:5].decode('utf-8'),
+                modelName=response[5:15].decode('utf-8'),
+                manufacturer=response[15:31].replace(b'\xff', b'\x20').decode('utf-8'),
+                serialNumber=response[31:47].decode('utf-8'),
+                nominalVpv=response[47:51].decode('utf-8'),
+                internalVersion=response[51:63].decode('utf-8'),
+                safetyCountryCode=response[63])
         except Exception:
             raise  # Raise all other errors
 
-    def offline_query(self):
+    def _offline(self, response):
         try:
-            response = self._send(CC_REG, FC_QRYOFF, [])
-            if response[5] != FC_RESOFF:
+            if response[5] != self.FC_RESOFF:
                 raise MalFormedError('Invalid inverter response from offline query')
-        except socket.timeout:
-            raise RuntimeError('Unable to locate inverter on network')
+            # Hard coded array indexes below are ok as the data length has been verified
+            # and the indexes are defined by the protocol
+            self.inverter_address = response[3]
+            self.ap_address = response[2]
         except Exception:
             raise  # Raise all other errors
 
-        # Hard coded array indexes below are ok as the data length has been verified
-        # and the indexes are defined by the protocol
-        self.INVERTER_ADDRESS = response[3]
-        self.state = State.CONNECTED
-        self.statetime = millis()
-        time.sleep(self.PAUSE / 1000)
-
-    def _send(self, control_code, function_code, data=None):
-        msg = HEADER + bytearray([self.INVERTER_ADDRESS, self.AP_ADDRESS, control_code, function_code, len(data)])
-        if len(data) > 0:
-            msg.extend(data)
-        self._append_crc(msg)
+    def _send_udp(self, control_code, function_code):
+        msg = self.HEADER + bytearray([self.inverter_address, self.ap_address, control_code, function_code, 0x00])
+        append_crc(msg)
 
         try:
             self.sock.sendto(msg, self.addr)
+        except Exception:
+            raise  # Raise all other errors
+
+    def _receive_udp(self):
+        try:
             response, self.addr = self.sock.recvfrom(self.BUFFERSIZE)
-            self._check_valid_response(response)
             return response
         except Exception:
             raise  # Raise all other errors
 
-    @staticmethod
-    def _calculate_crc(buffer):
-        crc = 0
-        for i in range(len(buffer)):
-            crc += buffer[i]
-        return crc
-
-    def _append_crc(self, buffer):
-        buffer.extend(self._calculate_crc(buffer).to_bytes(2, byteorder='big'))
-
     def _check_valid_response(self, buffer):
-        if len(buffer) > 4 and buffer[0:2] == HEADER:
-            if struct.unpack('>h', buffer[len(buffer) - 2:len(buffer)])[0] == self._calculate_crc(
-                    buffer[0:len(buffer) - 2]):
-                return
-
+        # Hard coded array indexes below are ok as the data format and the indexes are defined by the protocol
+        if len(buffer) > 6 and buffer[0:2] == self.HEADER:
+            if buffer[2] == self.ap_address and buffer[3] == self.inverter_address:
+                i = buffer[6] + self.PACKET_OVERHEAD
+                if buffer[i - 2] * 256 + buffer[i - 1] == calculate_crc(buffer[0:i - 2]):
+                    return
         raise MalFormedError('Invalid data format response received from inverter')
