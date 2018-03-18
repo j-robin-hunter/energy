@@ -79,27 +79,30 @@ class AbstractDatabase(AbstractPlugin):
         pass
 
     def run(self):
-        # A database plugin may read data from multiple queues so a short blocking get on each queue is started
-        # and joined for each queue. The blocking timeout is to allow for the plugin thread to receive and respond
-        # to a terminate signal
-        while not self.terminate.is_set():
-            # Start process worker threads for each queue that this database plugin can received data from
-            for queuename, queue in self.queues.items():
-                # Does the queue have a formatter
-                formatter = None
-                for formatter in self.formatters:
-                    if formatter.get_queuename() == queuename:
-                        logging.debug('Adding formatter "%s" to queue "%s"' % (formatter.get_name(), queuename))
-                        break
-                thread = threading.Thread(
-                    name=queuename,
-                    target=self._process_queue,
-                    args=(queuename, queue, formatter,))
-                logging.debug('Starting listen thread for queue "%s"' % queuename)
-                thread.start()
-                thread.join()
+        try:
+            # A database plugin may read data from multiple queues so a short blocking get on each queue is started
+            # and joined for each queue. The blocking timeout is to allow for the plugin thread to receive and respond
+            # to a terminate signal
+            while not self.terminate.is_set():
+                # Start process worker threads for each queue that this database plugin can received data from
+                for queuename, queue in self.queues.items():
+                    # Does the queue have a formatter
+                    formatter = None
+                    for formatter in self.formatters:
+                        if formatter.get_queuename() == queuename:
+                            logging.debug('Adding formatter "%s" to queue "%s"' % (formatter.get_name(), queuename))
+                            break
+                    thread = threading.Thread(
+                        name=queuename,
+                        target=self._process_queue,
+                        args=(queuename, queue, formatter,))
+                    logging.debug('Starting listen thread for queue "%s"' % queuename)
+                    thread.start()
+                    thread.join()
 
-        logging.info('Plugin "%s" is terminating following signal' % self.myname)
+            logging.info('Plugin "%s" is terminating following signal' % self.myname)
+        except Exception as e:
+            logging.error('Exception caught %s: %s' % (type(e), e))
 
     def _process_queue(self, queuename, queue, formatter):
         logging.debug('Process queue thread for queue "%s"' % queuename)

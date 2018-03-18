@@ -58,5 +58,5 @@ class Plugin(AbstractDatabase):
             try:
                 logging.debug('Writing data to database')
                 self.connection.write(entry, {'db': self.config['database']}, 204, 'line')
-            except Exception as e:
-                print(str(e), type(e))
+            except Exception:
+                raise
