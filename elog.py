@@ -241,9 +241,10 @@ def main():
         while not max_queue_exceeded and not plugin_failure:
             logging.debug('Verifying program run status')
             time.sleep(10)
-            for name, queue in queues.items():
+            for queuename, queue in queues.items():
+                logging.debug('Queue "%s" contains %d records' % (queuename, queue.qsize()))
                 if queue.qsize() >= max_queue_size:
-                    logging.critical('Queue "%s" is oversize, terminating program' % name)
+                    logging.critical('Queue "%s" is oversize, terminating program' % queuename)
                     max_queue_exceeded = True
 
             running_threads = []

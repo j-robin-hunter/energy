@@ -61,7 +61,7 @@ class Formatter(AbstractFormatter):
                  data['E_Total_Load'],
                  data['SOH1'],
                  data['Pmeter'],
-                 data['timestamp']))
+                 data['timestamp'] * 1000000))  # Convert to nanoseconds
         except KeyError as e:
             logging.debug('KeyError "%s" in formatter "%s"' % (str(e), self.myname))
         return lineformat

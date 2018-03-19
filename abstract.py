@@ -113,7 +113,9 @@ class AbstractDatabase(AbstractPlugin):
             if formatter is not None:
                 if formatter.get_queuename() == queuename:
                     logging.debug('Passing data to formatter "%s"' % formatter.get_name())
+                    logging.debug('---- Before formatting: %s' % str(data))
                     data = formatter.do_formatting(data)
+                    logging.debug('---- After formatting: %s' % str(data))
                     logging.debug('Calling "%s" with %s' % (self.myname, str(data)))
                     self.data_callback(queuename, data)
             logging.debug('Processing data from queue "%s"' % queuename)
@@ -139,6 +141,8 @@ class AbstractCollector(AbstractPlugin):
                 if formatter.get_queuename() == queuename:
                     logging.debug('Calling formatter "%s" prior to sending data on queue "%s"'
                                   % (formatter.get_name(), queuename))
+                    logging.debug('---- Before formatting: %s' % str(data))
                     data = formatter.do_formatting(data)
+                    logging.debug('---- After formatting: %s' % str(data))
             logging.debug('Sending data on queue "%s"' % queuename)
             queue.put(data)

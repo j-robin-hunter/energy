@@ -40,7 +40,7 @@ class Formatter(AbstractFormatter):
                  data['name'].replace(' ', '\ '),
                  data['category'].replace(' ', '\ '),
                  data['power'] / 1000,
-                 data['timestamp']))
+                 data['timestamp'] * 1000000))  # Convert to nanoseconds
         except KeyError as e:
             logging.debug('KeyError "%s" in formatter "%s"' % (str(e), self.myname))
         return lineformat

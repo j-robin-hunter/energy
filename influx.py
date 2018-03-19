@@ -18,9 +18,11 @@ __copyright__ = "Copyright 2018, Roma Technology Limited"
 __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
+
 from abstract import AbstractDatabase
 import influxdb
 import logging
+import requests
 
 
 class NoDatabaseError(Exception):
@@ -33,6 +35,7 @@ class NoDatabaseError(Exception):
 
 class Plugin(AbstractDatabase):
     CONNECTION_TIMEOUT = 10
+    RETRY_TIMEOUT = 1
 
     def __init__(self, myname, queues, formatters, config):
         super().__init__(myname, queues, formatters, config)
@@ -55,8 +58,19 @@ class Plugin(AbstractDatabase):
 
     def data_callback(self, queuename, data):
         for entry in data:
-            try:
-                logging.debug('Writing data to database')
-                self.connection.write(entry, {'db': self.config['database']}, 204, 'line')
-            except Exception:
-                raise
+            # A ConnectionError can occur if the database becomes disconnected. If this happens the database
+            # connector will do a number of retries but since the connection could be down for a
+            # period due to network errors the database connection retries will be too short to be of
+            # real value. As such a loop is established that will keep retrying until the connection
+            # succeeds or the program gets terminated because a queue full condition is detected
+            # within the main program loop
+            while not self.terminate.is_set():
+                try:
+                    logging.debug('Writing data to database')
+                    self.connection.write(entry, {'db': self.config['database']}, 204, 'line')
+                    break
+                except requests.exceptions.ConnectionError as e:
+                    logging.debug('Database connection error - retrying in %d second(s)' % self.RETRY_TIMEOUT)
+                    pass
+                except Exception:
+                    raise
