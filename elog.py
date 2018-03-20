@@ -155,7 +155,7 @@ def main():
         if level is not None:
             logger.setLevel(level)
 
-        logging.debug('Reading configuration <' + args.config + '>')
+        logging.info('Reading configuration <' + args.config + '>')
         config = read_config(args.config)
 
         # Program variables that can be set in config file

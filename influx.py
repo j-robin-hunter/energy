@@ -69,8 +69,8 @@ class Plugin(AbstractDatabase):
                     logging.debug('Writing data to database')
                     self.connection.write(entry, {'db': self.config['database']}, 204, 'line')
                     break
-                except requests.exceptions.ConnectionError as e:
-                    logging.debug('Database connection error - retrying in %d second(s)' % self.RETRY_TIMEOUT)
+                except requests.exceptions.ConnectionError:
+                    logging.info('Database connection error - retrying in %d second(s)' % self.RETRY_TIMEOUT)
                     pass
                 except Exception:
                     raise
