@@ -35,7 +35,7 @@ class NoDatabaseError(Exception):
 
 class Plugin(AbstractDatabase):
     CONNECTION_TIMEOUT = 10
-    RETRY_TIMEOUT = 1
+    RETRY_TIMEOUT = 5
 
     def __init__(self, myname, queues, formatters, config):
         super().__init__(myname, queues, formatters, config)

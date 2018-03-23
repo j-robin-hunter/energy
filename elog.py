@@ -115,8 +115,8 @@ def load_formatters(config):
     config_branch = 'root'
     formatters = []
     try:
-        for formatter_entry in config.get('formatters', []):
-            config_branch = 'formatters'
+        for formatter_entry in config.get('formatter', []):
+            config_branch = 'formatter'
             formatter_name = formatter_entry['name']
 
             # We now have the name so update error string to aid finding config error
@@ -135,7 +135,7 @@ def load_formatters(config):
         return formatters
     except TypeError:
         logging.error('Error in "%s" section of configuration file' % config_branch)
-        raise RuntimeError('Unable to load formatters due to configuration file error')
+        raise RuntimeError('Unable to load formatter due to configuration file error')
     except ModuleNotFoundError as e:
         logging.error('%s in %s in configuration file' % (str(e), config_branch))
         raise RuntimeError(str(e))

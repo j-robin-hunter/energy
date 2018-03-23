@@ -1,12 +1,16 @@
 {
     "plugin_types": [ "database", "collector" ],
-    "measurements": [ "meters", "inverter" ],
-    "formatters": [
+    "measurements": [ "meter", "inverter" ],
+    "server": {
+        "host": "localhost",
+        "port": 4040
+    },
+    "formatter": [
         {
             "name": "influxenistic",
             "format": {
                 "plugin_name": "influx",
-                "measurement": "meters"
+                "measurement": "meter"
             }
         },
         {
@@ -20,7 +24,7 @@
     "database": [
         {
             "name": "influx",
-            "measurements": [ "meters", "inverter" ],
+            "measurements": [ "meter", "inverter" ],
             "config": {
                 "database": "elog",
                 "host": "192.168.1.6",
@@ -33,7 +37,7 @@
     "collector": [
         {
             "name" : "enistic",
-            "measurements": [ "meters" ],
+            "measurements": [ "meter" ],
             "config": {
                 "port": 53005,
                 "meters": [

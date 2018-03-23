@@ -131,6 +131,9 @@ class Plugin(AbstractCollector):
     OFFLINE = 1
     RUNNING = 2
 
+    SOCKET_RETRIES = 100
+    SOCKET_RETRIES_DELAY = 10
+
     def __init__(self, myname, queues, formatters, config):
         super().__init__(myname, queues, formatters, config)
         self.state = self.OFFLINE
@@ -151,14 +154,9 @@ class Plugin(AbstractCollector):
         # Set socket timeout to maximum expected data response delay from inverter as per protocol specifications
         self.sock.settimeout(0.5)
 
-        try:
-            # Using broadcast will allow setting of either a single address or a bit masked address
-            # for the inverter in the configuration
-            self.addr = (str(ipaddress.IPv4Network(self.config['host'], strict=False).broadcast_address),
-                         self.config['port'])
-        except Exception:
-            logging.error('Unable to locate inverter on network')
-            raise NoInverterError('Unable to locate inverter on network')
+        # Using broadcast will allow setting of either a single address or a bit masked address
+        # for the inverter in the configuration
+        self.addr = str(ipaddress.IPv4Network(self.config['host'], strict=False).broadcast_address), self.config['port']
 
     def __del__(self):
         try:
@@ -195,7 +193,8 @@ class Plugin(AbstractCollector):
         try:
             self._send_udp(control_code, function_code)
             self._receive(function_code)
-        except Exception:
+        except Exception as e:
+            logging.error('Exception caught %s: %s' % (type(e), e))
             raise
 
     def _receive(self, function_code):
@@ -307,10 +306,19 @@ class Plugin(AbstractCollector):
         msg = self.HEADER + bytearray([self.inverter_address, self.ap_address, control_code, function_code, 0x00])
         append_crc(msg)
 
-        try:
-            self.sock.sendto(msg, self.addr)
-        except Exception:
-            raise  # Raise all other errors
+        retry = 0
+        while True:
+            try:
+                self.sock.sendto(msg, self.addr)
+                # If socket send caused no errors then break out of loop otherwise
+                # retry until allowed number or reties has been exceeded and then raise error
+                break
+            except OSError as e:
+                retry += 1
+                logging.info('Exception %s: %s sending data to the inverter - attempt %d' % (type(e), e, retry))
+                if retry > self.SOCKET_RETRIES:
+                    raise NoInverterError('Unable to send data to the inverter')
+                time.sleep(self.SOCKET_RETRIES_DELAY)
 
     def _receive_udp(self):
         try:
