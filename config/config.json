@@ -1,0 +1,124 @@
+{
+    "server": {
+        "port": 4040
+    },
+    "measurement": [
+        {
+            "name": "Washing",
+            "sensor": [
+                { "name": "Washing Machines", "type": "Measurement", "unit": "watts" }
+            ]
+        },
+        {
+            "name": "Heating",
+            "sensor": [
+                { "name": "Water Heater", "type": "Measurement", "unit": "watts" },
+                { "name": "Bathroom Heaters", "type": "Measurement", "unit": "watts" }
+            ]
+        },
+        {
+            "name": "Cooking",
+            "sensor": [
+                { "name": "Kitchen Island", "type": "Measurement", "unit": "watts" },
+                { "name": "Ovens", "type": "Measurement", "unit": "watts" }
+            ]
+        },
+        {
+            "name": "Power",
+            "sensor": [
+                { "name": "Upstairs Power", "type": "Measurement", "unit": "watts" },
+                { "name": "Kitchen Power", "type": "Measurement", "unit": "watts" },
+                { "name": "Over Garage Power", "type": "Measurement", "unit": "watts" },
+                { "name": "Downstairs Power", "type": "Measurement", "unit": "watts" },
+                { "name": "Living Room & DMX", "type": "Measurement", "unit": "watts" }
+            ]
+        },
+        {
+            "name": "Lighting",
+            "sensor": [
+                { "name": "Lighting", "type": "Measurement", "unit": "watts" },
+                { "name": "Evolution", "type": "Measurement", "unit": "watts" }
+            ]
+        },
+        {
+            "name": "Solar",
+            "sensor": [
+                { "name": "Vpv1", "type": "Measurement", "unit": "volts" },
+                { "name": "Ipv1", "type": "Measurement", "unit": "volts" },
+                { "name": "PVTotal", "type": "Measurement", "unit": "watts" }
+            ]
+        },
+        {
+            "name": "Solar Battery",
+            "sensor": [
+                { "name": "Vbattery1", "type": "Measurement", "unit": "volts" },
+                { "name": "Ibattery1", "type": "Measurement", "unit": "amps" },
+                { "name": "SOC1", "type": "Measurement", "unit": "percents" },
+                { "name": "SOH1", "type": "Measurement", "unit": "percent" }
+            ]
+        },
+        {   "name": "Grid Power",
+            "sensor": [
+                { "name": "PGrid", "type": "Measurement", "unit": "watts" },
+                { "name": "ETotal", "type": "Measurement", "unit": "watts" },
+                { "name": "EDay", "type": "Measurement", "unit": "watts" },
+                { "name": "Load Power", "type": "Measurement", "unit": "watts" },
+                { "name": "E_Load_Day", "type": "Measurement", "unit": "watts" },
+                { "name": "E_Total_Load", "type": "Measurement", "unit": "watts" },
+                { "name": "Pmeter", "type": "Measurement", "unit": "watts" }
+            ]
+        }
+    ],
+    "module": [
+        {
+            "name": "influx",
+            "inputs": [ "*" ],
+            "config": {
+                "database": "elog",
+                "host": "192.168.1.6",
+                "port": 8086,
+                "username": "robin",
+                "password": "delta1234",
+                "series": "reading"
+            }
+        },
+        {
+            "name": "enistic",
+            "outputs": [ "Washing", "Heating", "Cooking", "Power", "Lighting" ],
+            "config": {
+                "port": 53005,
+                "meters": [
+                    { "channel": 1, "name": "Living Room & DMX" },
+                    { "channel": 2, "name": "Washing Machines" },
+                    { "channel": 4, "name": "Water Heater" },
+                    { "channel": 5, "name": "Kitchen Island" },
+                    { "channel": 6, "name": "Bathroom Heaters" },
+                    { "channel": 9, "name": "Kitchen Power" },
+                    { "channel": 10, "name": "Upstairs Power" },
+                    { "channel": 11, "name": "Over Garage Power" },
+                    { "channel": 12, "name": "Downstairs Power" },
+                    { "channel": 13, "name": "Lighting" },
+                    { "channel": 14, "name": "Ovens" },
+                    { "channel": 15, "name": "Evolution" }
+                ]
+            }
+        },
+        {
+            "name": "goodwe",
+            "outputs": [
+                "Solar",
+                "Solar Battery",
+                "Grid Power"
+            ],
+            "config": {
+                "host": "192.168.1.0/24",
+                "port": 8899,
+                "pvarray": 2200,
+                "battery": {
+                    "max_capacity": 126,
+                    "max_discharge": 90
+                }
+            }
+        }
+    ]
+}

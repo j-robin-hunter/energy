@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""" A plugin to provide a collector for solar related data using GoodWe inverters
+""" A plugin to provide a database connection using the InfluxDB time series database
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -18,16 +18,11 @@ __copyright__ = "Copyright 2018, Roma Technology Limited"
 __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
-from abstract import AbstractCollector
-import time
+
+from lib.abstract import AbstractModule, millis, sleep
 import socket
 import ipaddress
-import struct
 import logging
-
-
-def millis():
-    return int(round(time.time() * 1000))
 
 
 def calculate_crc(buffer):
@@ -41,23 +36,16 @@ def append_crc(buffer):
     buffer.extend(calculate_crc(buffer).to_bytes(2, byteorder='big'))
 
 
-class NoInverterError(Exception):
-    def __init__(self, value):
-        self.value = value
+class Module(AbstractModule):
+    # Program constants
+    BUFFERSIZE = 1024
+    OFFLINE_TIMEOUT = 30000
+    SOCKET_RETRIES = 100
+    SOCKET_RETRIES_DELAY = 10
 
-    def __str__(self):
-        return self.value
+    OFFLINE = 1
+    RUNNING = 2
 
-
-class MalFormedError(Exception):
-    def __init__(self, value):
-        self.value = value
-
-    def __str__(self):
-        return repr(self.value)
-
-
-class Plugin(AbstractCollector):
     # GoodWe control and function codes
     CC_REG = 0x00
     CC_READ = 0x01
@@ -82,60 +70,50 @@ class Plugin(AbstractCollector):
     # name of the packet, it's size and a 'divisor' needed to return the data to the precision
     # units specified in the GoodWe protocol.
     single_phase = {
-        "Vpv1": [SHORT, 10],
-        "Vpv2": [SHORT, 10],
-        "Ipv1": [SHORT, 10],
-        "Ipv2": [SHORT, 10],
-        "Vac1": [SHORT, 10],
-        "Iac1": [SHORT, 10],
-        "Fac1": [SHORT, 100],
-        "PGrid": [SHORT, 1],
-        "WorkMode": [SHORT, 1],
-        "Temperature": [SHORT, 10],
-        "ErrorMessage": [LONG, 1],
-        "ETotal": [LONG, 10],
-        "HTotal": [LONG, 1],
-        "SoftVersion": [SHORT, 1],
-        "WarningCode": [SHORT, 1],
-        "PV2FaultValue": [SHORT, 10],
-        "FunctionsBitValue": [SHORT, 1],
-        "BUSVoltage": [SHORT, 10],
-        "GFCICheckValue_SafetyCountry": [SHORT, 1],
-        "EDay": [SHORT, 10],
-        "Vbattery1": [SHORT, 10],
-        "Errorcode": [SHORT, 1],
-        "SOC1": [SHORT, 1],
-        "Ibattery1": [SHORT, 10],
-        "PVTotal": [SHORT, 10],
-        "LoadPower": [LONG, 1],
-        "E_Load_Day": [SHORT, 10],
-        "E_Total_Load": [LONG, 10],
-        "InverterPower": [SHORT, 1],
-        "Vload": [SHORT, 10],
-        "Iload": [SHORT, 10],
-        "OperationMode": [SHORT, 1],
-        "BMS_Alarm": [SHORT, 1],
-        "BMS_Warning": [SHORT, 1],
-        "SOH1": [SHORT, 1],
-        "BMS_Temperature": [SHORT, 10],
-        "BMS_Charge_I_Max": [SHORT, 1],
-        "BMS_Discharge_I_Max": [SHORT, 1],
-        "Battery_Work_Mode": [SHORT, 1],
-        "Pmeter": [SHORT, 1]
+        'Vpv1': [SHORT, 10],
+        'Vpv2': [SHORT, 10],
+        'Ipv1': [SHORT, 10],
+        'Ipv2': [SHORT, 10],
+        'Vac1': [SHORT, 10],
+        'Iac1': [SHORT, 10],
+        'Fac1': [SHORT, 100],
+        'PGrid': [SHORT, 1],
+        'WorkMode': [SHORT, 1],
+        'Temperature': [SHORT, 10],
+        'ErrorMessage': [LONG, 1],
+        'ETotal': [LONG, 10],
+        'HTotal': [LONG, 1],
+        'SoftVersion': [SHORT, 1],
+        'WarningCode': [SHORT, 1],
+        'PV2FaultValue': [SHORT, 10],
+        'FunctionsBitValue': [SHORT, 1],
+        'BUSVoltage': [SHORT, 10],
+        'GFCICheckValue_SafetyCountry': [SHORT, 1],
+        'EDay': [SHORT, 10],
+        'Vbattery1': [SHORT, 10],
+        'Errorcode': [SHORT, 1],
+        'SOC1': [SHORT, 1],
+        'Ibattery1': [SHORT, 10],
+        'PVTotal': [SHORT, 10],
+        'LoadPower': [LONG, 1],
+        'E_Load_Day': [SHORT, 10],
+        'E_Total_Load': [LONG, 10],
+        'InverterPower': [SHORT, 1],
+        'Vload': [SHORT, 10],
+        'Iload': [SHORT, 10],
+        'OperationMode': [SHORT, 1],
+        'BMS_Alarm': [SHORT, 1],
+        'BMS_Warning': [SHORT, 1],
+        'SOH1': [SHORT, 1],
+        'BMS_Temperature': [SHORT, 10],
+        'BMS_Charge_I_Max': [SHORT, 1],
+        'BMS_Discharge_I_Max': [SHORT, 1],
+        'Battery_Work_Mode': [SHORT, 1],
+        'Pmeter': [SHORT, 1]
     }
 
-    # Program constants
-    BUFFERSIZE = 1024
-    OFFLINE_TIMEOUT = 30000
-
-    OFFLINE = 1
-    RUNNING = 2
-
-    SOCKET_RETRIES = 100
-    SOCKET_RETRIES_DELAY = 10
-
-    def __init__(self, myname, queues, formatters, config):
-        super().__init__(myname, queues, formatters, config)
+    def __init__(self, module):
+        super().__init__(module)
         self.state = self.OFFLINE
         self.statetime = millis()
         self.lastReceived = millis()
@@ -144,7 +122,6 @@ class Plugin(AbstractCollector):
         self.inverter_address = 0xB0
 
         self.idinfo = {}
-        self.reading = {}
 
         # Set socket up to allow UDP with broadcast
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -156,38 +133,30 @@ class Plugin(AbstractCollector):
 
         # Using broadcast will allow setting of either a single address or a bit masked address
         # for the inverter in the configuration
-        self.addr = str(ipaddress.IPv4Network(self.config['host'], strict=False).broadcast_address), self.config['port']
+        self.addr = str(
+            ipaddress.IPv4Network(self.get_config_value('host'), strict=False).broadcast_address), \
+            self.get_config_value('port')
 
     def __del__(self):
         try:
             if self.sock is not None:
                 self.sock.close()
         except Exception as e:
-            logging.error('Encountered error while disposing %s: %s' % (self.myname, str(e)))
+            logging.error('Encountered error while disposing %s: %s' % (self.getName(), str(e)))
 
-    def run(self):
-        # The inverter protocol suggests that communication is 'reset' every 30 seconds
-        try:
-            while not self.terminate.is_set():
-                if (millis() - self.statetime) > self.OFFLINE_TIMEOUT:
-                    self.state = self.OFFLINE
+    def process_outputs(self):
+        if (millis() - self.statetime) > self.OFFLINE_TIMEOUT:
+            self.state = self.OFFLINE
 
-                if self.state == self.OFFLINE:
-                    self._send(self.CC_REG, self.FC_QRYOFF)
-                    self._send(self.CC_READ, self.FC_QRYID)
-                    self.state = self.RUNNING
-                    self.statetime = millis()
+        if self.state == self.OFFLINE:
+            self._send(self.CC_REG, self.FC_QRYOFF)
+            self._send(self.CC_READ, self.FC_QRYID)
+            self.state = self.RUNNING
+            self.statetime = millis()
 
-                self._send(self.CC_READ, self.FC_QRYRUN)
+        self._send(self.CC_READ, self.FC_QRYRUN)
 
-                if self.reading:
-                    self._data_send(self.reading)
-                    self.reading = {}
-
-                time.sleep(10)
-            logging.info('Plugin "%s" is terminating following signal' % self.myname)
-        except Exception as e:
-            logging.error('Exception caught %s: %s' % (type(e), e))
+        sleep(10)
 
     def _send(self, control_code, function_code):
         try:
@@ -235,11 +204,8 @@ class Plugin(AbstractCollector):
                         msg = 'run'
                     else:
                         msg = 'unexpected'
-                    raise MalFormedError('Invalid inverter response from ' + msg + ' query')
+                    logging.error('Invalid inverter response from ' + msg + ' query')
         except socket.timeout:
-            pass
-        except MalFormedError as e:
-            logging.error(str(e))
             pass
         except Exception:
             raise  # Raise all other errors
@@ -248,30 +214,30 @@ class Plugin(AbstractCollector):
         # Only get inverter information if the serial number and inverter model are known
         if self.idinfo.get('serialNumber', None) is not None and self.idinfo.get('modelName', None) is not None:
             try:
-                self.reading = dict(
-                    timestamp=millis(),
-                    serial=self.idinfo['serialNumber'],
-                    model=self.idinfo['modelName'])
                 # Hard coded array indexes below are ok as the data length has been verified
                 # and the indexes are defined by the protocol
                 ptr = 7
-                for key, value in self.single_phase.items():
-                    if value[0] == self.CHAR:
-                        self.reading[key] = int(response[ptr:ptr + 1])
+                for sensor_name, decode in self.single_phase.items():
+                    value = 0
+                    if decode[0] == self.CHAR:
+                        value = int.from_bytes(response[ptr:ptr + 1], byteorder='big', signed=True)
                         ptr += 1
-                    elif value[0] == self.SHORT:
-                        self.reading[key] = struct.unpack('!h', response[ptr:ptr+2])
+                    elif decode[0] == self.SHORT:
+                        value = int.from_bytes(response[ptr:ptr + 2], byteorder='big', signed=True)
                         ptr += 2
-                    elif value[0] == self.LONG:
-                        self.reading[key] = struct.unpack('!i', response[ptr:ptr + 4])
+                    elif decode[0] == self.LONG:
+                        value = int.from_bytes(response[ptr:ptr + 4], byteorder='big', signed=True)
                         ptr += 4
                     else:
                         pass
 
-                    if value[1] > 1:
-                        self.reading[key] = self.reading[key][0] / value[1]
-                    else:
-                        self.reading[key] = self.reading[key][0]
+                    self.send_output_data(
+                        sensor_name,
+                        value=value / decode[1],
+                        sn=self.idinfo['serialNumber'],
+                        model=self.idinfo['modelName'],
+                        lat=52.2,
+                        lon=0.3)
             except Exception:
                 raise  # Raise all other errors
 
@@ -294,7 +260,7 @@ class Plugin(AbstractCollector):
     def _offline(self, response):
         try:
             if response[5] != self.FC_RESOFF:
-                raise MalFormedError('Invalid inverter response from offline query')
+                raise RuntimeError('Invalid inverter response from offline query')
             # Hard coded array indexes below are ok as the data length has been verified
             # and the indexes are defined by the protocol
             self.inverter_address = response[3]
@@ -317,8 +283,8 @@ class Plugin(AbstractCollector):
                 retry += 1
                 logging.info('Exception %s: %s sending data to the inverter - attempt %d' % (type(e), e, retry))
                 if retry > self.SOCKET_RETRIES:
-                    raise NoInverterError('Unable to send data to the inverter')
-                time.sleep(self.SOCKET_RETRIES_DELAY)
+                    raise RuntimeError('Unable to send data to the inverter')
+                sleep(self.SOCKET_RETRIES_DELAY)
 
     def _receive_udp(self):
         try:
@@ -334,4 +300,4 @@ class Plugin(AbstractCollector):
                 i = buffer[6] + self.PACKET_OVERHEAD
                 if buffer[i - 2] * 256 + buffer[i - 1] == calculate_crc(buffer[0:i - 2]):
                     return
-        raise MalFormedError('Invalid data format response received from inverter')
+        raise RuntimeError('Invalid data format response received from inverter')
