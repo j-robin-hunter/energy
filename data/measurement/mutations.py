@@ -21,8 +21,6 @@ __version__ = "1.0.0"
 
 from .types import *
 import graphene
-import logging
-import json
 
 
 class MeasurementInput(MeasurementBase, graphene.InputObjectType):
@@ -44,6 +42,7 @@ class CreateMeasurement(Measurement, graphene.Mutation):
             model=measurement.model,
             lat=measurement.lat,
             lon=measurement.lon)
+
 
 class Mutations(graphene.ObjectType):
     create_measurement = CreateMeasurement.Field()

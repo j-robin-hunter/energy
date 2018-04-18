@@ -32,4 +32,3 @@ class MeasurementBase(Point):
 
 class Measurement(MeasurementBase, graphene.ObjectType):
     pass
-

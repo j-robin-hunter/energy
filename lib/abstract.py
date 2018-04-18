@@ -75,6 +75,7 @@ class AbstractModule(ABC, threading.Thread):
             raise
 
     def run(self):
+        # noinspection PyBroadException
         try:
             # If this module is able to input data it will do that from a queue that has been passed
             # as part of the module configuration data passed to the module at startup. This queue will

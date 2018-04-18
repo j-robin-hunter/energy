@@ -138,6 +138,7 @@ class Module(AbstractModule):
             self.get_config_value('port')
 
     def __del__(self):
+        # noinspection PyBroadException
         try:
             if self.sock is not None:
                 self.sock.close()

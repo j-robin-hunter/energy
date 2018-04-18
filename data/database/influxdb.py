@@ -49,6 +49,7 @@ class Database(AbstractDatabase):
             raise RuntimeError('Unable to connect to database')
 
     def __del__(self):
+        # noinspection PyBroadException
         try:
             if self.connection is not None:
                 self.connection.close()

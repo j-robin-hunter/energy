@@ -31,8 +31,6 @@ import lib.web
 import time
 import threading
 import data.graphql
-import traceback
-import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -99,6 +97,7 @@ def connect_database(config):
 
 def main():
     modules = set()
+    # noinspection PyBroadException
     try:
         config = read_config(args.config)
 
@@ -114,6 +113,7 @@ def main():
         start_webserver(config, schema)
         time.sleep(1)  # wait to allow server to start
 
+        database = ''
         if config.get('database', None):
             logging.info('Connecting to database')
             database = connect_database(config['database'])
@@ -209,10 +209,6 @@ def main():
         logging.critical(f'Missing key {str(e)} from configuration file')
     except Exception as e:
         logging.critical(f'Exception caught {type(e)}: {e}')
-        print("Exception in user code:")
-        print("-"*60)
-        traceback.print_exc(file=sys.stdout)
-        print("-"*60)
     finally:
         # Terminate all running plugins
         threads = [thread for thread in threading.enumerate()
