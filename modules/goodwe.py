@@ -142,7 +142,7 @@ class Module(AbstractModule):
             if self.sock is not None:
                 self.sock.close()
         except Exception as e:
-            logging.error('Encountered error while disposing %s: %s' % (self.getName(), str(e)))
+            logging.error(f'Encountered error while disposing {self.getName()}: {str(e)}')
 
     def process_outputs(self):
         if (millis() - self.statetime) > self.OFFLINE_TIMEOUT:
@@ -163,7 +163,7 @@ class Module(AbstractModule):
             self._send_udp(control_code, function_code)
             self._receive(function_code)
         except Exception as e:
-            logging.error('Exception caught %s: %s' % (type(e), e))
+            logging.error(f'Exception caught {type(e)}: {str(e)}')
             raise
 
     def _receive(self, function_code):
@@ -204,7 +204,7 @@ class Module(AbstractModule):
                         msg = 'run'
                     else:
                         msg = 'unexpected'
-                    logging.error('Invalid inverter response from ' + msg + ' query')
+                    logging.error(f'Invalid inverter response from {msg} query')
         except socket.timeout:
             pass
         except Exception:
@@ -212,7 +212,7 @@ class Module(AbstractModule):
 
     def _run(self, response):
         # Only get inverter information if the serial number and inverter model are known
-        if self.idinfo.get('serialNumber', None) is not None and self.idinfo.get('modelName', None) is not None:
+        if self.idinfo.get('serialNumber', None) and self.idinfo.get('modelName', None):
             try:
                 # Hard coded array indexes below are ok as the data length has been verified
                 # and the indexes are defined by the protocol
@@ -281,7 +281,7 @@ class Module(AbstractModule):
                 break
             except OSError as e:
                 retry += 1
-                logging.info('Exception %s: %s sending data to the inverter - attempt %d' % (type(e), e, retry))
+                logging.info(f'Exception {type(e)}: {str(e)} sending data to the inverter - attempt {retry}')
                 if retry > self.SOCKET_RETRIES:
                     raise RuntimeError('Unable to send data to the inverter')
                 sleep(self.SOCKET_RETRIES_DELAY)

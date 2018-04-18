@@ -1,86 +1,93 @@
 {
-    "server": {
+    "webserver": {
         "port": 4040
+    },
+    "database" : {
+        "type": "influxdb",
+        "database": "elog",
+        "host": "192.168.1.6",
+        "port": 8086,
+        "username": "robin",
+        "password": "delta1234",
+        "series": "reading"
     },
     "measurement": [
         {
-            "name": "Washing",
-            "sensor": [
-                { "name": "Washing Machines", "type": "Measurement", "unit": "watts" }
-            ]
-        },
-        {
-            "name": "Heating",
-            "sensor": [
-                { "name": "Water Heater", "type": "Measurement", "unit": "watts" },
-                { "name": "Bathroom Heaters", "type": "Measurement", "unit": "watts" }
-            ]
-        },
-        {
-            "name": "Cooking",
-            "sensor": [
-                { "name": "Kitchen Island", "type": "Measurement", "unit": "watts" },
-                { "name": "Ovens", "type": "Measurement", "unit": "watts" }
-            ]
-        },
-        {
-            "name": "Power",
-            "sensor": [
-                { "name": "Upstairs Power", "type": "Measurement", "unit": "watts" },
-                { "name": "Kitchen Power", "type": "Measurement", "unit": "watts" },
-                { "name": "Over Garage Power", "type": "Measurement", "unit": "watts" },
-                { "name": "Downstairs Power", "type": "Measurement", "unit": "watts" },
-                { "name": "Living Room & DMX", "type": "Measurement", "unit": "watts" }
-            ]
-        },
-        {
-            "name": "Lighting",
-            "sensor": [
-                { "name": "Lighting", "type": "Measurement", "unit": "watts" },
-                { "name": "Evolution", "type": "Measurement", "unit": "watts" }
-            ]
-        },
-        {
-            "name": "Solar",
-            "sensor": [
-                { "name": "Vpv1", "type": "Measurement", "unit": "volts" },
-                { "name": "Ipv1", "type": "Measurement", "unit": "volts" },
-                { "name": "PVTotal", "type": "Measurement", "unit": "watts" }
-            ]
-        },
-        {
-            "name": "Solar Battery",
-            "sensor": [
-                { "name": "Vbattery1", "type": "Measurement", "unit": "volts" },
-                { "name": "Ibattery1", "type": "Measurement", "unit": "amps" },
-                { "name": "SOC1", "type": "Measurement", "unit": "percents" },
-                { "name": "SOH1", "type": "Measurement", "unit": "percent" }
-            ]
-        },
-        {   "name": "Grid Power",
-            "sensor": [
-                { "name": "PGrid", "type": "Measurement", "unit": "watts" },
-                { "name": "ETotal", "type": "Measurement", "unit": "watts" },
-                { "name": "EDay", "type": "Measurement", "unit": "watts" },
-                { "name": "Load Power", "type": "Measurement", "unit": "watts" },
-                { "name": "E_Load_Day", "type": "Measurement", "unit": "watts" },
-                { "name": "E_Total_Load", "type": "Measurement", "unit": "watts" },
-                { "name": "Pmeter", "type": "Measurement", "unit": "watts" }
+            "type": "Measurement",
+            "category": [
+                {
+                    "name": "Washing",
+                    "sensor": [
+                        { "name": "Washing Machines", "unit": "watts" }
+                    ]
+                },
+                {
+                    "name": "Heating",
+                    "sensor": [
+                        { "name": "Water Heater", "unit": "watts" },
+                        { "name": "Bathroom Heaters", "unit": "watts" }
+                    ]
+                },
+                {
+                    "name": "Cooking",
+                    "sensor": [
+                        { "name": "Kitchen Island", "unit": "watts" },
+                        { "name": "Ovens", "unit": "watts" }
+                    ]
+                },
+                {
+                    "name": "Power",
+                    "sensor": [
+                        { "name": "Upstairs Power", "unit": "watts" },
+                        { "name": "Kitchen Power", "unit": "watts" },
+                        { "name": "Over Garage Power", "unit": "watts" },
+                        { "name": "Downstairs Power", "unit": "watts" },
+                        { "name": "Living Room & DMX", "unit": "watts" }
+                    ]
+                },
+                {
+                    "name": "Lighting",
+                    "sensor": [
+                        { "name": "Lighting", "unit": "watts" },
+                        { "name": "Evolution", "unit": "watts" }
+                    ]
+                },
+                {
+                    "name": "Solar",
+                    "sensor": [
+                        { "name": "Vpv1", "unit": "volts" },
+                        { "name": "Ipv1", "unit": "volts" },
+                        { "name": "PVTotal", "unit": "watts" }
+                    ]
+                },
+                {
+                    "name": "Solar Battery",
+                    "sensor": [
+                        { "name": "Vbattery1", "unit": "volts" },
+                        { "name": "Ibattery1", "unit": "amps" },
+                        { "name": "SOC1", "unit": "percent" },
+                        { "name": "SOH1", "unit": "percent" }
+                    ]
+                },
+                {   "name": "Grid Power",
+                    "sensor": [
+                        { "name": "PGrid", "unit": "watts" },
+                        { "name": "ETotal", "unit": "watts" },
+                        { "name": "EDay", "unit": "watts" },
+                        { "name": "Load Power", "unit": "watts" },
+                        { "name": "E_Load_Day", "unit": "watts" },
+                        { "name": "E_Total_Load", "unit": "watts" },
+                        { "name": "Pmeter", "unit": "watts" }
+                    ]
+                }
             ]
         }
     ],
     "module": [
         {
-            "name": "influx",
-            "inputs": [ "*" ],
-            "config": {
-                "database": "elog",
-                "host": "192.168.1.6",
-                "port": 8086,
-                "username": "robin",
-                "password": "delta1234",
-                "series": "reading"
-            }
+            "name": "measurement",
+            "inputs": [ "Measurement" ],
+            "input_processes": 2
         },
         {
             "name": "enistic",

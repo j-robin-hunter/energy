@@ -22,15 +22,17 @@ __version__ = "1.0.0"
 from urllib import request
 import json
 from urllib.parse import urlparse
-from multiprocessing import Queue
+from queue import Queue
 import argparse
 import logging
 import importlib
 from logging.handlers import RotatingFileHandler
-import re
 import lib.web
 import time
 import threading
+import data.graphql
+import traceback
+import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,7 +40,7 @@ logging.basicConfig(
 )
 
 MODULES_PACKAGE = 'modules'
-LIBRARY_PACKAGE = 'lib'
+DATABASE_PACKAGE = 'data.database'
 
 
 def read_config(config):
@@ -53,224 +55,132 @@ def read_config(config):
             logging.debug('  -- File based configuration file')
             with open(config) as configFile:
                 config_data = configFile.read()
+
         return json.loads(config_data)
 
     except Exception:
         raise
 
 
+def configure_logging(config):
+    logger = logging.getLogger('')
+
+    level = args.log
+    if level is not None:
+        logger.setLevel(level)
+
+    # Configure logger
+    if level is None:
+        level = logging.getLevelName(config.get('log_level', 'INFO'))
+    logger.setLevel(level)
+
+    # If a file handler is set then remove console.
+    # It will be automatically re-added if no handlers are present
+    log_file = config.get('log_file', None)
+    if log_file is not None:
+        logging.debug(f'Writing log output to file: "{log_file}"')
+    if log_file is not None:
+        lsstout = logger.handlers[0]
+        lhhdlr = RotatingFileHandler(log_file, maxBytes=1000000000, backupCount=5)
+        logger.addHandler(lhhdlr)
+        logger.removeHandler(lsstout)
+
+
+def start_webserver(config, schema):
+    webserver = lib.web.WebServer(config['webserver'], schema)
+    webserver.setDaemon(True)
+    webserver.start()
+
+
+def connect_database(config):
+    database = importlib.import_module(f'.{config["type"]}', package=DATABASE_PACKAGE)
+    return database.Database(config)
+
+
 def main():
-    started_threads = set()
-
+    modules = set()
     try:
-        logger = logging.getLogger('')
-
-        level = args.log
-        if level is not None:
-            logger.setLevel(level)
-
-        logging.info('Reading configuration <' + args.config + '>')
         config = read_config(args.config)
 
         # Program variables that can be set in config file
         max_queue_size = config.get('max_queue_size', 1000)
 
-        # Configure logger
-        if level is None:
-            level = logging.getLevelName(config.get('log_level', 'INFO'))
-        logger.setLevel(level)
+        configure_logging(config)
 
-        # If a file handler is set then remove console.
-        # It will be automatically re-added if no handlers are present
-        log_file = config.get('log_file', None)
-        if log_file is not None:
-            logging.debug('Writing log output to file: "%s"' % log_file)
-        if log_file is not None:
-            lsstout = logger.handlers[0]
-            lhhdlr = RotatingFileHandler(log_file, maxBytes=1000000000, backupCount=5)
-            logger.addHandler(lhhdlr)
-            logger.removeHandler(lsstout)
+        logging.info('Generating measurement and data type schema')
+        schema = data.graphql.schema()
 
-        # Verify that there are no duplicate measurements defined in the configuration file and also
-        # warn if no measurements are missing as outputs (warning) in modules or undefined across all
-        # modules 'inputs' or module 'outputs' but which are not defined as measurements (error).
-        # Also verify that all measurements are included in at least one module defined 'input' (warning)
-        # as this will mean that data might be collected but not written to any storage or data consumer.
-        # All measurements must also include at least one sensor and this sensor must not be duplicated
-        # across more than one measurement
+        logging.info('Starting HTTP server')
+        start_webserver(config, schema)
+        time.sleep(1)  # wait to allow server to start
 
-        measurements = set()
-        duplicates = set()
-        sensors = set()
+        if config.get('database', None):
+            logging.info('Connecting to database')
+            database = connect_database(config['database'])
 
+        # Process all sensors adding the correct measurement class to each.
+        sensors = []
         logging.info('Reading measurements')
         for measurement in config['measurement']:
-            if measurement['name'] in measurements or measurements.add(measurement['name']):
-                duplicates.add(measurement['name'])
-            try:
-                for sensor in measurement['sensor']:
-                    if sensor['name'] in sensors or sensors.add(sensor['name']):
-                        raise RuntimeError('Sensor "%s" is defined against more than one measurement that includes "%s"'
-                                           % (sensor['name'], measurement['name']))
-                    # Replace the sensor type with the schema object that will provide a data
-                    # container for the sensor
-                    logging.debug('  -- Installing data class "%s" into sensor "%s"'
-                                  % (sensor['type'], sensor['name']))
-                    module = importlib.import_module('.schema', package=LIBRARY_PACKAGE)
-                    sensor['class'] = getattr(module, sensor.get('type', None))
-                    del sensor['type']
-            except KeyError:
-                logging.error('Invalid sensor defined for measurement "%s"' % measurement['name'])
-                raise
-            except TypeError:
-                raise RuntimeError('The sensor definition for measurement "%s" is incorrect' % measurement['name'])
+            logging.debug(f'  -- Injecting schema type into measurement "{measurement["type"]}"')
+            measurement_class = None
+            for schema_type in schema.types:
+                if measurement['type'] == str(schema_type):
+                    measurement_class = schema_type
+                    break
+            if measurement_class is None:
+                logging.error(f'No schema defined for for measurement "{measurement["type"]}"')
+                raise RuntimeError('No schema definition for measurement type')
 
-        if duplicates:
-            logging.error('Duplicate measurement "%s" defined in configuration file'
-                          % ", ".join(str(e) for e in duplicates))
-            raise RuntimeError('Duplicate measurement defined in configuration file')
+            for category in measurement['category']:
+                logging.debug(f'    -- Processing sensors for category "{category["name"]}"')
+                for sensor in category['sensor']:
+                    logging.debug(f'      -- Collating data for sensor "{sensor["name"]}"')
+                    sensor['measurement'] = measurement['type']
+                    sensor['category'] = category['name']
+                    sensors.append(dict(
+                        type=measurement['type'],
+                        sensor=sensor
+                    ))
 
-        # Required variables
-        outputs = set()
-        inputs = set()
-        queues = []
-
-        logging.info('Processing modules')
-        modules = []
+        # Process all modules. Ensure that there are no duplicates in terms of name
+        logging.info('Reading modules')
+        queues = {}
         for module in config['module']:
-            modules.append(module)
-            module_name = module['name']
-            logging.debug('-- Module name "%s"' % module_name)
+            logging.debug(f'  -- Module "{module["name"]}"')
+            if {True for mod in modules if mod == module['name']} != set():
+                logging.error('Duplicate module "{module["name"]}" defined in configuration file')
+                raise RuntimeError(f'Duplicate "module" definition for "{module["name"]}" found in configuration file')
 
-            logging.debug('  -- Importing module package as "%s" from "%s"' % ('.' + module_name, MODULES_PACKAGE))
-            try:
-                module['__module'] = importlib.import_module('.' + module_name, package=MODULES_PACKAGE)
-            except ModuleNotFoundError as e:
-                logging.error('%s in %s in configuration file' % (str(e), module_name))
-                raise RuntimeError(str(e))
+            if module.get('inputs', None):
+                logging.debug('    -- Processing module inputs')
+                for measurement in module['inputs']:
+                    queues[measurement] = Queue()
+                module['schema'] = schema
+                module['database'] = database
 
-            logging.debug('  -- Processing "output" and "input" measurements in module "%s"' % module_name)
-            outputs_list = module.get('outputs', [])
-            inputs_list = module.get('inputs', [])
+            # Re-add outputs to each module using the 'extended' definition that also
+            # includes the measurement class
+            if module.get('outputs', None):
+                logging.debug('    -- Processing module outputs')
+                module['output_types'] = {sensor['type'] for sensor in sensors
+                                          if sensor['sensor']['category'] in module.get('outputs', [])}
+                module['outputs'] = [sensor['sensor']
+                                     for sensor in sensors
+                                     if sensor['sensor']['category'] in module.get('outputs', [])]
+            modules.add(module['name'])
 
-            logging.debug("    -- Checking that outputs and inputs are lists")
-            if not isinstance(outputs_list, list) or not isinstance(inputs_list, list):
-                raise RuntimeError('Module "%s" configuration must define "outputs" and "inputs" as lists'
-                                   % module_name)
-
-            logging.debug('    -- defined outputs: %s' % outputs_list)
-            logging.debug('    -- defined inputs: %s' % inputs_list)
-
-            module_outputs = set(outputs_list)
-            module_inputs = set(inputs_list)
-
-            # Account for module inputs expressed as a '*'.
-            if '*' in module_inputs:
-                logging.debug('    -- Replacing input list with all measurements')
-                module_inputs = measurements.copy()
-
-            # Remove any excluded measurements from inputs list as indicted by a leading !
-            for i in inputs_list:
-                exclude = re.sub('^!*', '', i)
-                if i != exclude:
-                    logging.debug('    -- Excluding input "%s" from input list' % i)
-                    if exclude in measurements:
-                        module_inputs.discard(exclude)
-                    else:
-                        logging.error('    -- Excluded input is not a defined measurement')
-                        raise RuntimeError('Excluded input "%s" from module "%s" is not a defined measurement'
-                                           % (exclude, module_name))
-
-            # Account for module outputs expressed as a '*'
-            if '*' in module_outputs:
-                module_outputs = measurements.copy()
-
-            logging.debug('    -- processed outputs: %s' % module_outputs)
-            logging.debug('    -- processed inputs: %s' % module_inputs)
-
-            # Check module 'outputs' and 'inputs' that are not in 'measurements'
-            logging.debug('    -- Checking for any undefined measurements')
-            if module_outputs - measurements:
-                logging.error('Module "%s" defined to output undefined measurement "%s"'
-                              % (module_name, ", ".join(str(e) for e in (module_outputs - measurements))))
-                raise RuntimeError('Module defined to output undefined measurement')
-            if module_inputs - measurements:
-                logging.error('Module "%s" defined to input undefined measurement "%s"'
-                              % (module_name, ", ".join(str(e) for e in (module_inputs - measurements))))
-                raise RuntimeError('Module defined to input undefined measurement')
-
-            # Create a queue to process measurements defined in module 'inputs' clause and inject
-            # detailed measurement data to allow module to determine how to output and input data
-            # against the queue
-            if module_inputs:
-                logging.debug('  -- Created queue "%s" for measurements "%s"'
-                              % (module_name, module_inputs))
-                module['__inputs_queue'] = Queue()
-                queues.append(dict(name=module_name,
-                                   measurements=module_inputs,
-                                   queue=module['__inputs_queue']))
-
-            # Update the module outputs with the processed list
-            module['outputs'] = module_outputs
-
-            # Keep track of all defined outputs and inputs for error checking
-            inputs.update(module_inputs)
-            outputs.update(module_outputs)
-
-        # Give all modules access to all queues so that an instantiated module
-        # can determine which measurement is to be read/written to which queue
-        # logging.debug('  -- Injecting queues into module')
-        # module['__queues'] = queues
-
-        # Final error checks on all module outputs and inputs before modules are started
-        logging.debug('Checking for any unused "outputs" measurements')
-        if measurements - outputs:
-            logging.warning('Measurement(s) "%s" not defined in any module "outputs"'
-                            % ", ".join(str(e) for e in (measurements - outputs)))
-
-        logging.debug('Checking for any unused "outputs" measurements')
-        if measurements - inputs:
-            logging.warning('Measurement(s) "%s" not defined in any module "inputs"'
-                            % ", ".join(str(e) for e in (measurements - inputs)))
-
-        # Inject output queue sensor data and start each module as a thread
-        for module in modules:
-            module['__outputs'] = []
-            for queue in queues:
-                for output in set.intersection(queue['measurements'], module['outputs']):
-                    logging.debug('  -- Collating sensor data for module "%s": %s' % (module['name'], output))
-                    for measurement in config['measurement']:
-                        if output == measurement['name']:
-                            for sensor in measurement['sensor']:
-                                sensor.update(queue=queue['queue'], measurement=measurement['name'])
-                                logging.debug('    -- Injecting sensor data: %s', sensor)
-                                module['__outputs'].append(sensor)
-
-            if len(module['__outputs']) == 0:
-                logging.debug('  -- Module "%s" has no defined outputs, deleting output from module data'
-                              % module['name'])
-                del module['__outputs']
-
-            # Delete the outputs and inputs defined by the configuration file as the
-            # queue and sensor entries now provide all of the information needed to both
-            # output and input data on the correct queue in the correct format
-            logging.debug('  -- Deleting configured outputs and inputs from module "%s"' % module['name'])
-            if module.get('inputs', None) is not None:
-                del module['inputs']
-            if module.get('outputs', None) is not None:
-                del module['outputs']
-
-            logging.info('Instantiating and starting module "%s"' % module['name'])
-            instance = module["__module"].Module(module)
+        # Start each module as a thread. A second loop is used to ensure that the data passed to the
+        # module constructor is complete - for example all queue information
+        for module in config['module']:
+            logging.debug('Injecting queues into module')
+            module['queues'] = queues
+            logging.info(f'Importing and instantiating module "{module["name"]}"')
+            imported = importlib.import_module(f'.{module["name"]}', package=MODULES_PACKAGE)
+            instance = imported.Module(module)
             instance.setName(module['name'])
             logging.debug('  -- Starting module worker thread')
             instance.start()
-            started_threads.add(module['name'])
-
-        logging.info('Starting HTTP server')
-        webserver = lib.web.WebServer(config['server'])
-        webserver.setDaemon(True)
-        webserver.start()
 
         logging.info('Program started')
 
@@ -281,30 +191,34 @@ def main():
             logging.info('Verifying program run status')
             time.sleep(10)
 
-            logging.debug('---- Check all queue sizes')
-            oversize_queues = [queue['name'] for queue in queues if queue['queue'].qsize() >= max_queue_size]
-            if oversize_queues:
-                logging.critical('Queue(s) "%s" oversize, terminating program'
-                                 % ", ".join(str(e) for e in oversize_queues))
-                break
+            logging.debug('  -- Check all queue sizes')
+            for key in queues:
+                logging.debug(f'    -- Queue "{key}" current size: {queues[key].qsize()}')
+                if queues[key].qsize() >= max_queue_size:
+                    logging.critical(f'Queue(s) "{key}" oversize, terminating program')
+                    raise RuntimeError('Queue oversize')
 
-            logging.debug('---- Check all running threads')
+            logging.debug('  -- Check all running threads')
             running_threads = set([thread.getName() for thread in threading.enumerate()])
-            if started_threads - running_threads:
+            if modules - running_threads:
                 logging.critical('Module(s) "%s" no longer running, terminating program'
-                                 % ", ".join(str(e) for e in (started_threads - running_threads)))
-                break
+                                 % ", ".join(str(e) for e in (modules - running_threads)))
+                raise RuntimeError('Unexpected module termination')
 
     except KeyError as e:
-        logging.critical('Missing key %s from configuration file' % str(e))
+        logging.critical(f'Missing key {str(e)} from configuration file')
     except Exception as e:
-        logging.critical('Exception caught %s: %s' % (type(e), e))
+        logging.critical(f'Exception caught {type(e)}: {e}')
+        print("Exception in user code:")
+        print("-"*60)
+        traceback.print_exc(file=sys.stdout)
+        print("-"*60)
     finally:
         # Terminate all running plugins
         threads = [thread for thread in threading.enumerate()
-                   if thread.isAlive() and thread.getName() in started_threads]
+                   if thread.isAlive() and thread.getName() in modules]
         for thread in threads:
-            logging.info('Terminating %s' % thread.getName())
+            logging.info(f'Terminating {thread.getName()}')
             thread.terminate.set()
             thread.join()
 
@@ -321,10 +235,5 @@ if __name__ == '__main__':
                         choices=['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'],
                         help="Set minimum log level: DEBUG, INFO, WARN, ERROR, CRITICAL")
     args = parser.parse_args()
-
-    # myname = os.path.basename(sys.argv[0])
-    # pidfile = '/tmp/%s' % myname  # any name
-    # daemon = Daemonize(app=myname, pid=pidfile, action=main)
-    # daemon.start()
 
     main()

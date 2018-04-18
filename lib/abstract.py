@@ -21,7 +21,6 @@ __version__ = "1.0.0"
 
 from abc import ABC, abstractmethod
 import threading
-import multiprocessing
 from queue import Empty
 import logging
 import time
@@ -33,6 +32,25 @@ def millis():
 
 def sleep(seconds):
     return time.sleep(seconds)
+
+
+class AbstractDatabase(ABC):
+    @abstractmethod
+    def __init__(self, config):
+        super(AbstractDatabase, self).__init__()
+        self.config = config
+
+    @abstractmethod
+    def __del__(self):
+        pass
+
+    def write_measurement(self, measurement):
+        logging.error(
+            f'Database implementation "{self.config["type"]}" unexpectedly called the default write_data() method '
+            f'- this should be overridden')
+        raise NotImplementedError(
+            'Unexpected invocation of abstract class method write_data '
+            '- this should be overridden in concrete class')
 
 
 class AbstractModule(ABC, threading.Thread):
@@ -65,13 +83,14 @@ class AbstractModule(ABC, threading.Thread):
             # if it has been received. More than one thread can be started against a queue to allow for
             # potentially improved database write performance. The process_inputs_callback function must
             # be thread safe
-            if self.module.get('__inputs_queue', None) is not None:
+            for measurement in self.module.get('inputs', []):
                 for i in range(self.module.get('input_processes', 1)):
-                    logging.debug('Module "%s" thread %d listening on input queue' % (self.getName(), i+1))
+                    logging.debug(f'Module "{self.getName()}" thread {i + 1} listening on "{measurement}" input queue')
+                    queue = self.module['queues'][measurement]
                     thread = threading.Thread(
                         name=self.getName() + '_queue',
                         target=self._process_queue,
-                        args=(self.module['__inputs_queue'],))
+                        args=(queue,))
                     thread.start()
 
             # All modules exist within a main loop that will only exit if the module is requested to terminate
@@ -81,12 +100,12 @@ class AbstractModule(ABC, threading.Thread):
                 # need to return to this main loop so that a other tasks or a request
                 # to terminate can be actioned. This method needs to be overridden in the concrete
                 # class or a NotImplemented error will be raised.
-                if self.module.get('__outputs', None) is not None:
+                if self.module.get('outputs', None) is not None:
                     self.process_outputs()
 
-            logging.info('Plugin "%s" is terminating following signal' % self.getName())
+            logging.info(f'Plugin "{self.getName()}" is terminating following signal')
         except Exception as e:
-            logging.error('Exception caught %s: %s' % (type(e), e))
+            logging.error(f'Exception caught {type(e)}: {str(e)}')
 
     def _process_queue(self, queue):
         # This process queue function will block for on the queue for QUEUE_TIMEOUT time or
@@ -98,59 +117,49 @@ class AbstractModule(ABC, threading.Thread):
                 # data = queue.get(True, self.QUEUE_TIMEOUT)
                 data = queue.get(True)
                 if data:
-                    logging.debug('Received data from queue "%s", calling process_inputs_callback' % self.getName())
+                    logging.debug(f'Received data from queue "{self.getName()}", calling process_inputs_callback')
                     self.process_inputs_callback(data)
         except Empty:
             pass
-        except Exception:
-            # The exception will have been logged so only need to signal module termination and terminate thread
+        except Exception as e:
+            logging.critical(str(e))
             self.terminate.set()
 
     def process_inputs_callback(self, data):
         logging.error(
-            'Module "%s" unexpectedly called the default process_input_callback() method - this should be overridden'
-            % self.getName())
+            f'Module "{self.getName()}" unexpectedly called the default process_input_callback() method '
+            f'- this should be overridden')
         raise NotImplementedError(
             'Unexpected invocation of abstract class method process_input_callback '
             '- this should be overridden in concrete class')
 
     def process_outputs(self):
         logging.error(
-            'Module "%s" unexpectedly called the default process_outputs() method - this should be overridden'
-            % self.getName())
+            f'Module "{self.getName()}" unexpectedly called the default process_outputs() method '
+            f'- this should be overridden')
         raise NotImplementedError(
             'Unexpected invocation of abstract class method process_outputs '
             '- this should be overridden in concrete class')
 
     def send_output_data(self, sensor, **kwargs):
         try:
-            queue = None
-            sensor_class = None
-
-            # Add the timestamp and the name of the sensor as these are part of
-            # all measurement points as defined by the schema Point interface
+            # Add the timestamp, the name of the sensor, the measurement type and
+            # the units as these are part of all measurement points as defined by
+            # the schema Point object which is the superclass of all measurement types
             if kwargs.get('timestamp', None) is None:
                 kwargs['timestamp'] = millis()
             kwargs['sensor'] = sensor
 
             # Locate the output details for the sensor and if found
-            for sensor_output in self.module['__outputs']:
+            for sensor_output in self.module['outputs']:
                 if sensor == sensor_output['name']:
-                    # Output details for the sensor has been located, complete
-                    # schema Point interface requirements by adding the name
-                    # of the measurement and by getting the queue onto which data
-                    # will be sent together with the sensor type data object class
-                    kwargs['measurement'] = sensor_output['measurement']
+                    kwargs['category'] = sensor_output['category']
                     kwargs['unit'] = sensor_output['unit']
-                    queue = sensor_output['queue']
-                    sensor_class = sensor_output['class']
+
+                    logging.debug(f'Writing to "{sensor_output["measurement"]}" queue data {str(kwargs)}')
+                    queue = self.module['queues'][sensor_output['measurement']]
+                    queue.put(kwargs)
                     break
 
-            if queue is not None and sensor_class is not None:
-                # Send the data on the the required queue
-                queue.put(sensor_class(**kwargs))
-            else:
-                logging.debug('No valid definition found for sensor "%s" in module "%s"'
-                              % (sensor, self.getName()))
         except Exception:
             raise

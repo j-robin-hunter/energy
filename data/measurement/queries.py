@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""" A plugin to provide a database connection using the InfluxDB time series database
+""" Main entry program for Roma Technology energy data logging/capture program.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -19,43 +19,17 @@ __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
 
+from .types import *
 import graphene
 
 
-class Point(graphene.Interface):
-    timestamp = graphene.Float(required=True)
-    measurement = graphene.String()
-    sensor = graphene.String()
-    value = graphene.Float(required=True)
-    unit = graphene.String()
-
-
-class Measurement(graphene.ObjectType):
-    class Meta:
-        interfaces = (Point, )
-    sn = graphene.String()
-    model = graphene.String()
-    lat = graphene.Float()
-    lon = graphene.Float()
-
-
-class Test(graphene.ObjectType):
-    class Meta:
-        interfaces = (Point, )
-
-
 class Query(graphene.ObjectType):
-    latest_meter = graphene.Field(Measurement)
+    measurement = graphene.Field(Measurement)
 
-    def resolve_latest_meter(self, info):
+    def resolve_measurement(self, info):
         print(type(Measurement))
-        print('got here')
+        print('got here ', info)
         return Measurement(
             timestamp=1234567890,
             model="1234",
             value=1.234)
-
-
-schema = graphene.Schema(
-    query=Query,
-    types=(Measurement, ))

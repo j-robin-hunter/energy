@@ -22,13 +22,13 @@ __version__ = "1.0.0"
 import threading
 from flask import Flask, request
 from flask_graphql import GraphQLView
-from lib.schema import schema
 
 
 class WebServer(threading.Thread):
-    def __init__(self, config):
+    def __init__(self, config, schema):
         super(WebServer, self).__init__()
         self.config = config
+        self.schema = schema
 
     def run(self):
         app = Flask(__name__)
@@ -48,8 +48,6 @@ class WebServer(threading.Thread):
                 raise RuntimeError('Not running with the Werkzeug Server')
             func()
 
-        app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=True))
+        app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=self.schema, graphiql=True))
 
-        app.run(port=self.config['port'])
-
-
+        app.run(port=self.config['port'], threaded=True)
