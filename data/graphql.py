@@ -19,13 +19,11 @@ __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
 
-from .base_abstract import *
+import graphene
 import os
 import importlib
 import inspect
 import logging
-import data.measurement.queries
-import data.measurement.mutations
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 current_module = current_directory.split(os.sep)[-1]
@@ -37,7 +35,7 @@ subdirectories = [d
 
 
 def get_queries():
-    queries_base_classes = [QueriesAbstract]
+    queries_base_classes = []
     for directory in subdirectories:
         try:
             module = importlib.import_module(f'{current_module}.{directory}.queries')
@@ -57,7 +55,7 @@ def get_queries():
 
 
 def get_mutations():
-    mutations_base_classes = [MutationsAbstract]
+    mutations_base_classes = []
     for directory in subdirectories:
         try:
             module = importlib.import_module(f'{current_module}.{directory}.mutations')
@@ -102,9 +100,4 @@ def schema():
     types = get_types()
 
     logging.debug('  -- Generating schema')
-    schema1 = graphene.Schema(query=data.measurement.queries.Query,
-                              types=(data.measurement.types.Measurement, ),
-                              mutation=data.measurement.mutations.Mutations)
-    schema2 = graphene.Schema(query=queries, types=types, mutation=mutations)
-
-    return schema2
+    return graphene.Schema(query=queries, types=types, mutation=mutations)

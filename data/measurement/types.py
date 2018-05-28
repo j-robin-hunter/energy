@@ -19,16 +19,21 @@ __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
 
-from data.base_abstract import Point
+from data.base_objects import SensorReadingBase
 import graphene
 
 
-class MeasurementBase(Point):
-    sn = graphene.String()
-    model = graphene.String()
-    lat = graphene.Float()
-    lon = graphene.Float()
+class MeasurementBase(SensorReadingBase, object):
+    unit = graphene.String(description='The units, normally SI, percent or similar, associated with the measurement')
+    sn = graphene.String(description='A serial number to assist in the identification of a Sensor')
+    model = graphene.String(description='A model name/id to assist in the identification of a Sensor')
+    lat = graphene.Float(description='The latitude to associate with a measurement')
+    lon = graphene.Float(description='The longitude to associate with a measurement')
 
 
 class Measurement(MeasurementBase, graphene.ObjectType):
+    '''
+    A Measurement provides some additional detail fields for a Sensor reading. These
+    details are generally informative in nature
+    '''
     pass

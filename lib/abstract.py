@@ -24,6 +24,7 @@ import threading
 from queue import Empty
 import logging
 import time
+from promise.dataloader import DataLoader
 
 
 def millis():
@@ -50,6 +51,14 @@ class AbstractDatabase(ABC):
             f'- this should be overridden')
         raise NotImplementedError(
             'Unexpected invocation of abstract class method write_data '
+            '- this should be overridden in concrete class')
+
+    def summary(self):
+        logging.error(
+            f'Database implementation "{self.config["type"]}" unexpectedly called the default summary() method '
+            f'- this should be overridden')
+        raise NotImplementedError(
+            'Unexpected invocation of abstract class method summary '
             '- this should be overridden in concrete class')
 
 
@@ -144,17 +153,17 @@ class AbstractModule(ABC, threading.Thread):
 
     def send_output_data(self, sensor, **kwargs):
         try:
-            # Add the timestamp, the name of the sensor, the measurement type and
+            # Add the timestamp, the id of the sensor, the measurement type and
             # the units as these are part of all measurement points as defined by
             # the schema Point object which is the superclass of all measurement types
-            if kwargs.get('timestamp', None) is None:
-                kwargs['timestamp'] = millis()
-            kwargs['sensor'] = sensor
+            if kwargs.get('time', None) is None:
+                kwargs['time'] = millis()
+            kwargs['id'] = sensor
 
             # Locate the output details for the sensor and if found
             for sensor_output in self.module['outputs']:
-                if sensor == sensor_output['name']:
-                    kwargs['category'] = sensor_output['category']
+                if sensor == sensor_output['id']:
+                    # kwargs['category'] = sensor_output['category']
                     kwargs['unit'] = sensor_output['unit']
 
                     logging.debug(f'Writing to "{sensor_output["measurement"]}" queue data {str(kwargs)}')
@@ -164,3 +173,19 @@ class AbstractModule(ABC, threading.Thread):
 
         except Exception:
             raise
+
+
+class AbstractDataLoader(ABC, DataLoader):
+
+    @abstractmethod
+    def __init__(self, database):
+        super(AbstractDataLoader, self).__init__()
+        self.database = database
+
+    def batch_load_fn(self, keys):
+        logging.error(
+            f'Dataloader "{self.getName()}" unexpectedly called the dataload_fn() method '
+            f'- this should be overridden')
+        raise NotImplementedError(
+            'Unexpected invocation of abstract class method dataload_fn '
+            '- this should be overridden in concrete class')

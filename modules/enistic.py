@@ -62,13 +62,13 @@ class Module(AbstractModule):
                 if len(tokens) >= 6:
                     try:
                         meter_reading = get_number(tokens[3])
-                        sensor_name = list(
+                        sensor_id = list(
                                 filter(lambda meter: meter['channel'] == get_number(tokens[5]), self.meters)
                             )[0].get('name')
 
                         logging.debug('Writing Enisitic data to measurement queue')
                         self.send_output_data(
-                            sensor_name,
+                            sensor_id,
                             value=meter_reading / 1000,
                             sn=self.serialNumber,
                             model=self.modelName,

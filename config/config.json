@@ -18,66 +18,66 @@
                 {
                     "name": "Washing",
                     "sensor": [
-                        { "name": "Washing Machines", "unit": "watts" }
+                        { "id": "Washing Machines", "unit": "watts" }
                     ]
                 },
                 {
                     "name": "Heating",
                     "sensor": [
-                        { "name": "Water Heater", "unit": "watts" },
-                        { "name": "Bathroom Heaters", "unit": "watts" }
+                        { "id": "Water Heater", "unit": "watts" },
+                        { "id": "Bathroom Heaters", "unit": "watts" }
                     ]
                 },
                 {
                     "name": "Cooking",
                     "sensor": [
-                        { "name": "Kitchen Island", "unit": "watts" },
-                        { "name": "Ovens", "unit": "watts" }
+                        { "id": "Kitchen Island", "unit": "watts" },
+                        { "id": "Ovens", "unit": "watts" }
                     ]
                 },
                 {
                     "name": "Power",
                     "sensor": [
-                        { "name": "Upstairs Power", "unit": "watts" },
-                        { "name": "Kitchen Power", "unit": "watts" },
-                        { "name": "Over Garage Power", "unit": "watts" },
-                        { "name": "Downstairs Power", "unit": "watts" },
-                        { "name": "Living Room & DMX", "unit": "watts" }
+                        { "id": "Upstairs Power", "unit": "watts" },
+                        { "id": "Kitchen Power", "unit": "watts" },
+                        { "id": "Over Garage Power", "unit": "watts" },
+                        { "id": "Downstairs Power", "unit": "watts" },
+                        { "id": "Living Room & DMX", "unit": "watts" }
                     ]
                 },
                 {
                     "name": "Lighting",
                     "sensor": [
-                        { "name": "Lighting", "unit": "watts" },
-                        { "name": "Evolution", "unit": "watts" }
+                        { "id": "Lighting", "unit": "watts" },
+                        { "id": "Evolution", "unit": "watts" }
                     ]
                 },
                 {
                     "name": "Solar",
                     "sensor": [
-                        { "name": "Vpv1", "unit": "volts" },
-                        { "name": "Ipv1", "unit": "volts" },
-                        { "name": "PVTotal", "unit": "watts" }
+                        { "id": "Vpv1", "unit": "volts" },
+                        { "id": "Ipv1", "unit": "amps" },
+                        { "id": "PVTotal", "unit": "watts" }
                     ]
                 },
                 {
                     "name": "Solar Battery",
                     "sensor": [
-                        { "name": "Vbattery1", "unit": "volts" },
-                        { "name": "Ibattery1", "unit": "amps" },
-                        { "name": "SOC1", "unit": "percent" },
-                        { "name": "SOH1", "unit": "percent" }
+                        { "id": "Vbattery1", "unit": "volts" },
+                        { "id": "Ibattery1", "unit": "amps" },
+                        { "id": "SOC1", "unit": "percent" },
+                        { "id": "SOH1", "unit": "percent" }
                     ]
                 },
                 {   "name": "Grid Power",
                     "sensor": [
-                        { "name": "PGrid", "unit": "watts" },
-                        { "name": "ETotal", "unit": "watts" },
-                        { "name": "EDay", "unit": "watts" },
-                        { "name": "Load Power", "unit": "watts" },
-                        { "name": "E_Load_Day", "unit": "watts" },
-                        { "name": "E_Total_Load", "unit": "watts" },
-                        { "name": "Pmeter", "unit": "watts" }
+                        { "id": "PGrid", "unit": "watts" },
+                        { "id": "ETotal", "unit": "watts" },
+                        { "id": "EDay", "unit": "watts" },
+                        { "id": "LoadPower", "unit": "watts" },
+                        { "id": "E_Load_Day", "unit": "watts" },
+                        { "id": "E_Total_Load", "unit": "watts" },
+                        { "id": "Pmeter", "unit": "watts" }
                     ]
                 }
             ]
@@ -95,8 +95,8 @@
             "config": {
                 "port": 53005,
                 "meters": [
-                    { "channel": 1, "name": "Living Room & DMX" },
                     { "channel": 2, "name": "Washing Machines" },
+                    { "channel": 3, "name": "Living Room & DMX" },
                     { "channel": 4, "name": "Water Heater" },
                     { "channel": 5, "name": "Kitchen Island" },
                     { "channel": 6, "name": "Bathroom Heaters" },

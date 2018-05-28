@@ -19,22 +19,22 @@ __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
 
-from .types import *
-import graphene
+from promise import Promise
+from lib.abstract import AbstractDataLoader
+from data.measurement.types import Measurement
 
 
-class MeasurementInput(MeasurementBase, graphene.InputObjectType):
-    pass
+class SensorReadingDataLoader(AbstractDataLoader):
+    def __init__(self, database):
+        super().__init__(database)
 
+    cache = False
 
-class CreateMeasurement(Measurement, graphene.Mutation):
-    class Arguments:
-        measurement = MeasurementInput()
+    def batch_load_fn(self, keys):
+        measurement_result_set = self.database.summary()
+        return Promise.resolve([self.get_measurement_reading(result_set=measurement_result_set, key=key) for key in keys])
 
-    def mutate(self, info, measurement):
-        info.context['database'].write_measurement(measurement)
-        return CreateMeasurement(**measurement)
-
-
-class Mutations(graphene.ObjectType):
-    create_measurement = CreateMeasurement.Field()
+    def get_measurement_reading(self, result_set, key):
+        measurement = list(result_set.get_points(tags={'id': key}))[0]
+        measurement['id'] = key
+        return Measurement(**measurement)

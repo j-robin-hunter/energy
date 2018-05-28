@@ -19,22 +19,12 @@ __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
 
-from .types import *
 import graphene
+from data.base_objects import SensorReadingBase
 
 
-class MeasurementInput(MeasurementBase, graphene.InputObjectType):
+class SensorReading(SensorReadingBase, graphene.ObjectType):
+    """
+    Details when and what has been read from a sensor
+    """
     pass
-
-
-class CreateMeasurement(Measurement, graphene.Mutation):
-    class Arguments:
-        measurement = MeasurementInput()
-
-    def mutate(self, info, measurement):
-        info.context['database'].write_measurement(measurement)
-        return CreateMeasurement(**measurement)
-
-
-class Mutations(graphene.ObjectType):
-    create_measurement = CreateMeasurement.Field()

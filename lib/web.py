@@ -21,17 +21,21 @@ __version__ = "1.0.0"
 
 import threading
 from flask import Flask, request
+from flask_cors import CORS
 from flask_graphql import GraphQLView
+from data.database.dataloader import SensorReadingDataLoader
 
 
 class WebServer(threading.Thread):
-    def __init__(self, config, schema):
+    def __init__(self, config, schema, database):
         super(WebServer, self).__init__()
         self.config = config
         self.schema = schema
+        self.database = database
 
     def run(self):
         app = Flask(__name__)
+        CORS(app, resources=r'/graphql/*')
 
         @app.route('/')
         def root():
@@ -48,6 +52,11 @@ class WebServer(threading.Thread):
                 raise RuntimeError('Not running with the Werkzeug Server')
             func()
 
-        app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=self.schema, graphiql=True))
+        app.add_url_rule('/graphql',
+                         view_func=GraphQLView.as_view('graphql',
+                                                       schema=self.schema,
+                                                       graphiql=True,
+                                                       context=dict(database=self.database,
+                                                                    dataloader=SensorReadingDataLoader(self.database))))
 
         app.run(port=self.config['port'], threaded=True)

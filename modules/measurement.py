@@ -20,6 +20,7 @@ __status__ = "Production"
 __version__ = "1.0.0"
 
 from lib.abstract import AbstractModule
+from data.database.dataloader import SensorReadingDataLoader
 import logging
 
 
@@ -39,7 +40,7 @@ class Module(AbstractModule):
             '''
             mutation CreateMeasurement($measurement: MeasurementInput!) {
                 createMeasurement(measurement: $measurement) {
-                    timestamp
+                    time
                 }
             }
             ''',

@@ -19,22 +19,13 @@ __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
 
-from .types import *
+from data.category.types import *
 import graphene
 
 
-class MeasurementInput(MeasurementBase, graphene.InputObjectType):
-    pass
-
-
-class CreateMeasurement(Measurement, graphene.Mutation):
-    class Arguments:
-        measurement = MeasurementInput()
-
-    def mutate(self, info, measurement):
-        info.context['database'].write_measurement(measurement)
-        return CreateMeasurement(**measurement)
-
-
-class Mutations(graphene.ObjectType):
-    create_measurement = CreateMeasurement.Field()
+class Summary(graphene.ObjectType):
+    grid = graphene.Float()
+    premises = graphene.Float()
+    solar = graphene.Float()
+    battery = graphene.Float()
+    wind = graphene.Float()

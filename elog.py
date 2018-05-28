@@ -31,6 +31,8 @@ import lib.web
 import time
 import threading
 import data.graphql
+import traceback
+import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,8 +86,8 @@ def configure_logging(config):
         logger.removeHandler(lsstout)
 
 
-def start_webserver(config, schema):
-    webserver = lib.web.WebServer(config['webserver'], schema)
+def start_webserver(config, schema, database):
+    webserver = lib.web.WebServer(config['webserver'], schema, database)
     webserver.setDaemon(True)
     webserver.start()
 
@@ -109,14 +111,14 @@ def main():
         logging.info('Generating measurement and data type schema')
         schema = data.graphql.schema()
 
-        logging.info('Starting HTTP server')
-        start_webserver(config, schema)
-        time.sleep(1)  # wait to allow server to start
-
         database = ''
         if config.get('database', None):
             logging.info('Connecting to database')
             database = connect_database(config['database'])
+
+        logging.info('Starting HTTP server')
+        start_webserver(config, schema, database)
+        time.sleep(1)  # wait to allow server to start
 
         # Process all sensors adding the correct measurement class to each.
         sensors = []
@@ -135,7 +137,7 @@ def main():
             for category in measurement['category']:
                 logging.debug(f'    -- Processing sensors for category "{category["name"]}"')
                 for sensor in category['sensor']:
-                    logging.debug(f'      -- Collating data for sensor "{sensor["name"]}"')
+                    logging.debug(f'      -- Collating data for sensor "{sensor["id"]}"')
                     sensor['measurement'] = measurement['type']
                     sensor['category'] = category['name']
                     sensors.append(dict(

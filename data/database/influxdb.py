@@ -24,7 +24,7 @@ import influxdb
 import logging
 import requests
 import time
-from ..base_abstract import Point
+from ..base_objects import SensorReadingBase
 
 
 class Database(AbstractDatabase):
@@ -56,6 +56,14 @@ class Database(AbstractDatabase):
         except Exception as e:
             logging.error(f'Encountered error while disposing {self.config["type"]}: {str(e)}')
 
+    def summary(self):
+        try:
+            query = f'SELECT * FROM {self.config["series"]} GROUP BY * ORDER BY DESC LIMIT 1'
+            return self.connection.query(query, database=self.config['database'], epoch='ms')
+        except Exception as e:
+            logging.error(f'Database query error: {str(e)}')
+            raise
+
     def write_measurement(self, measurement):
         # Since this is an HTTP request it could fail. Stay in a loop retrying until the call either
         # succeeds or the program dies due to other errors, for example queue full
@@ -82,34 +90,26 @@ class Database(AbstractDatabase):
         # Convert data to InfluxDB line format
         logging.debug('Converting Measurement to InfluxDB line format')
 
-        # Remove value and timestamp as these, together with the
-        # series name (derived from the config file) are mandatory
-        # parts of the InfluxDB CLI spec
-        # https://github.com/influxdata/influxdb/blob/master/tsdb/README.md
-        data_value = data['value']
-        timestamp = int(data['timestamp'])
-        del data['value']
-        del data['timestamp']
-
         # All entries in Point are tag values except value and timestamp.
         # All remaining entries in the passed data pertain to the actual
         # sensor so are used as additional values to reduce the number of
         # series in the InfluxDB schema
-        point_vars = [v for v in dir(Point()) if not v.startswith('_')]
+        point_vars = [v for v in dir(SensorReadingBase()) if not v.startswith('_')]
         tags = ''
         values = ''
         for key, value in data.items():
-            if key in point_vars:
-                # Must escape all commas and spaces. Numeric and string
-                # tags are left unquoted, unlike values
-                if isinstance(value, str):
-                    value = value.replace(' ', '\ ').replace(',', '\,')
-                tags += f',{key}={value}'
-            else:
-                # Must enclose all string values in double quotes
-                if isinstance(value, str):
-                    values += f',{key}="{value}"'
+            if key != 'value' and key != 'time':
+                if key in point_vars:
+                    # Must escape all commas and spaces. Numeric and string
+                    # tags are left unquoted, unlike values
+                    if isinstance(value, str):
+                        value = value.replace(' ', '\ ').replace(',', '\,')
+                    tags += f',{key}={value}'
                 else:
-                    values += f',{key}={value}'
+                    # Must enclose all string values in double quotes
+                    if isinstance(value, str):
+                        values += f',{key}="{value}"'
+                    else:
+                        values += f',{key}={value}'
 
-        return f'{self.config["series"]}{tags} value={data_value}{values} {timestamp}'
+        return f'{self.config["series"]}{tags} value={data["value"]}{values} {int(data["time"])}'

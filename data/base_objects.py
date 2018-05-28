@@ -22,17 +22,7 @@ __version__ = "1.0.0"
 import graphene
 
 
-class QueriesAbstract(graphene.ObjectType):
-    pass
-
-
-class MutationsAbstract(graphene.ObjectType):
-    pass
-
-
-class Point(object):
-    timestamp = graphene.Float(required=True)
-    category = graphene.String()
-    sensor = graphene.String()
-    value = graphene.Float(required=True)
-    unit = graphene.String()
+class SensorReadingBase(object):
+    time = graphene.Float(required=True, description='Millisecond time to associate with the value')
+    id = graphene.String(description='An id, normally unique, to identify the sensor that read the value')
+    value = graphene.Float(required=True, description='A single value/reading that has been taken')
