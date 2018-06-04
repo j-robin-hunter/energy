@@ -35,6 +35,10 @@ class SensorReadingDataLoader(AbstractDataLoader):
         return Promise.resolve([self.get_measurement_reading(result_set=measurement_result_set, key=key) for key in keys])
 
     def get_measurement_reading(self, result_set, key):
-        measurement = list(result_set.get_points(tags={'id': key}))[0]
+        try:
+            measurement = list(result_set.get_points(tags={'id': key}))[0]
+        except IndexError as e:
+            return None
+
         measurement['id'] = key
         return Measurement(**measurement)

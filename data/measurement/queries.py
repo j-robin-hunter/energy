@@ -54,7 +54,8 @@ sensor = graphene.Enum('Sensor',
                            ('LOAD_POWER', 'LoadPower'),
                            ('E_LOAD_DAY', 'E_Load_Day'),
                            ('E_TOTAL_LOAD', 'E_Total_Load'),
-                           ('PMETER', 'Pmeter')
+                           ('PMETER', 'Pmeter'),
+                           ('VLOAD', "Vload")
                        ])
 
 

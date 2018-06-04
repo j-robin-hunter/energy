@@ -20,7 +20,7 @@ __status__ = "Production"
 __version__ = "1.0.0"
 
 import threading
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_graphql import GraphQLView
 from data.database.dataloader import SensorReadingDataLoader
@@ -35,11 +35,15 @@ class WebServer(threading.Thread):
 
     def run(self):
         app = Flask(__name__)
-        CORS(app, resources=r'/graphql/*')
+        CORS(app, resources={r'/graphql/*': {'origins': '*'}, r'/config/*': {'origines': '*'}})
 
         @app.route('/')
         def root():
             return app.send_static_file('index.html')
+
+        @app.route('/config')
+        def config():
+            return jsonify(self.config['client'])
 
         @app.route(self.config.get('shutdown', '/shutdown'))
         def shutdown():
@@ -59,4 +63,4 @@ class WebServer(threading.Thread):
                                                        context=dict(database=self.database,
                                                                     dataloader=SensorReadingDataLoader(self.database))))
 
-        app.run(port=self.config['port'], threaded=True)
+        app.run(port=self.config['webserver']['port'], threaded=True)

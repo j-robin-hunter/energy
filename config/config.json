@@ -77,7 +77,8 @@
                         { "id": "LoadPower", "unit": "watts" },
                         { "id": "E_Load_Day", "unit": "watts" },
                         { "id": "E_Total_Load", "unit": "watts" },
-                        { "id": "Pmeter", "unit": "watts" }
+                        { "id": "Pmeter", "unit": "watts" },
+                        { "id": "Vload", "unit": "volts" }
                     ]
                 }
             ]
@@ -118,14 +119,19 @@
                 "Grid Power"
             ],
             "config": {
-                "host": "192.168.1.0/24",
+                "host": "192.168.1.157",
                 "port": 8899,
-                "pvarray": 2200,
-                "battery": {
-                    "max_capacity": 126,
-                    "max_discharge": 90
-                }
+                "pvarray": 2200
             }
         }
-    ]
+    ],
+    "client": {
+        "providers": {
+            "grid": [],
+            "solar": [],
+            "battery": [],
+            "wind": []
+        },
+        "consumers" : {}
+    }
 }

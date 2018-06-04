@@ -87,7 +87,7 @@ def configure_logging(config):
 
 
 def start_webserver(config, schema, database):
-    webserver = lib.web.WebServer(config['webserver'], schema, database)
+    webserver = lib.web.WebServer(config, schema, database)
     webserver.setDaemon(True)
     webserver.start()
 

@@ -123,6 +123,12 @@ class Module(AbstractModule):
 
         self.idinfo = {}
 
+        # Using broadcast will allow setting of either a single address or a bit masked address
+        # for the inverter in the configuration
+        self.addr = str(
+            ipaddress.IPv4Network(self.get_config_value('host'), strict=False).broadcast_address), \
+                    self.get_config_value('port')
+
         # Set socket up to allow UDP with broadcast
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -130,12 +136,6 @@ class Module(AbstractModule):
 
         # Set socket timeout to maximum expected data response delay from inverter as per protocol specifications
         self.sock.settimeout(0.5)
-
-        # Using broadcast will allow setting of either a single address or a bit masked address
-        # for the inverter in the configuration
-        self.addr = str(
-            ipaddress.IPv4Network(self.get_config_value('host'), strict=False).broadcast_address), \
-            self.get_config_value('port')
 
     def __del__(self):
         # noinspection PyBroadException
