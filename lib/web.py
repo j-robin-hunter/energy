@@ -43,7 +43,7 @@ class WebServer(threading.Thread):
 
         @app.route('/config')
         def config():
-            return jsonify(self.config['client'])
+            return jsonify(self.config['configuration'])
 
         @app.route(self.config.get('shutdown', '/shutdown'))
         def shutdown():

@@ -225,7 +225,7 @@ def main():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="elog", description="An energy management program")
-    parser.positionals.title = "arguments"
+    parser._positionals.title = "arguments"
     parser.add_argument("config",
                         help="Full pathname or URL to the configuration file")
     parser.add_argument("--log",

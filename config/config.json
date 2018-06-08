@@ -1,4 +1,56 @@
 {
+    "configuration": {
+        "latitude": 52.202857,
+        "longitude": 0.399202,
+        "locale": "en_GB",
+        "providers": {
+            "grid": {
+                "tariff": {
+                    "name": "Ovo Fixed",
+                    "rate": [
+                        {
+                            "00:00:00": 0.0752,
+                            "sales_tax_percentage": 5 
+                        },
+                        {
+                            "00:07:00": 0.157,
+                            "sales_tax_percentage": 5
+                        }
+                    ],
+                    "standing_charge": {
+                        "day": 0.2877,
+                        "sales_tax_percentage": 5
+                    }
+                },
+                "max_power": 5000
+            },
+            "solar": [
+                {
+                    "make": "Solar Centuary",
+                    "string": [
+                        {
+                            "tilt": 45,
+                            "azimuth": 180,
+                            "rating": 220
+                        }
+                    ]
+                }
+            ],
+            "battery": [
+                {
+                    "model": "LG RESU 6.5",
+                    "capacity": 126,
+                    "available_at": "25%",
+                    "max_discharge": "90%",
+                    "voltage": 51.8,
+                    "max_charge_current": 50,
+                    "max_discharge_current": 50
+                }
+            ],
+            "wind": []
+        },
+        "consumers" : []
+    },
     "webserver": {
         "port": 4040
     },
@@ -119,19 +171,10 @@
                 "Grid Power"
             ],
             "config": {
-                "host": "192.168.1.157",
+                "host": "192.168.1.0/24",
                 "port": 8899,
                 "pvarray": 2200
             }
         }
-    ],
-    "client": {
-        "providers": {
-            "grid": [],
-            "solar": [],
-            "battery": [],
-            "wind": []
-        },
-        "consumers" : {}
-    }
+    ]
 }
