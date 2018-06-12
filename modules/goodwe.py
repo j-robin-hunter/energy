@@ -232,13 +232,18 @@ class Module(AbstractModule):
                     else:
                         pass
 
-                    self.send_output_data(
-                        sensor_name,
-                        value=value / decode[1],
-                        sn=self.idinfo['serialNumber'],
-                        model=self.idinfo['modelName'],
-                        lat=52.2,
-                        lon=0.3)
+                    value = value / decode[1]
+                    # LoadPower can generate spurious numbers so do not send these
+                    if sensor_name == 'LoadPower' and value > 250000:
+                        logging.warning(f'Spurious LoadPower value: {value}')
+                    else:
+                        self.send_output_data(
+                            sensor_name,
+                            value=value,
+                            sn=self.idinfo['serialNumber'],
+                            model=self.idinfo['modelName'],
+                            lat=52.2,
+                            lon=0.3)
             except Exception:
                 raise  # Raise all other errors
 

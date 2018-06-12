@@ -53,12 +53,22 @@ class AbstractDatabase(ABC):
             'Unexpected invocation of abstract class method write_data '
             '- this should be overridden in concrete class')
 
-    def summary(self):
+    def all_latest_measurements(self):
         logging.error(
-            f'Database implementation "{self.config["type"]}" unexpectedly called the default summary() method '
+            f'Database implementation "{self.config["type"]}" '
+            f'unexpectedly called the default all_latest_measurements() method '
             f'- this should be overridden')
         raise NotImplementedError(
-            'Unexpected invocation of abstract class method summary '
+            'Unexpected invocation of abstract class method all_latest_measurements '
+            '- this should be overridden in concrete class')
+
+    def all_measurements_between(self, start, end=None):
+        logging.error(
+            f'Database implementation "{self.config["type"]}" '
+            f'unexpectedly called the default all_measurements_between() method '
+            f'- this should be overridden')
+        raise NotImplementedError(
+            'Unexpected invocation of abstract class method all_measurements_between '
             '- this should be overridden in concrete class')
 
 

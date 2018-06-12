@@ -39,7 +39,11 @@ class Database(AbstractDatabase):
                 host=self.config['host'],
                 port=self.config['port'],
                 timeout=self.CONNECTION_TIMEOUT)
-            self.connection.create_database(self.config['database'])
+
+            if len(list(filter(lambda database: database['name'] == self.config['database'],
+                       self.connection.get_list_database()))) == 0:
+                self.init_database(self.config['database'])
+
             logging.debug(f'  -- Database connected. '
                           f'database:"{self.config["database"]}", '
                           f'"host":{self.config["host"]}, '
@@ -56,9 +60,46 @@ class Database(AbstractDatabase):
         except Exception as e:
             logging.error(f'Encountered error while disposing {self.config["type"]}: {str(e)}')
 
-    def summary(self):
+    def init_database(self, name):
         try:
-            query = f'SELECT * FROM {self.config["series"]} GROUP BY * ORDER BY DESC LIMIT 1'
+            # Create database
+            self.connection.create_database(name)
+
+            # Create retention policies for one day, one year and five years
+            self.connection.create_retention_policy('one_day', '1d', '1', name, True)
+            self.connection.create_retention_policy('one_year', '52w', '1', name, False)
+            self.connection.create_retention_policy('five_year', '260w', '1', name, False)
+
+            # Create continuous queries to down sample into one year and five year retention policies
+            self.connection.query(f'create continuous query "cq_5m" on {name} begin '
+                                  'select mean(value) as "mean_value" '
+                                  'into "one_year"."downsampled_reading" '
+                                  'from reading group by *,time(5m) end', database=name)
+            self.connection.query(f'create continuous query "cq_30m" on {name} begin '
+                                  'select mean(value) as "mean_value" '
+                                  'into "five_year"."downsampled_reading" '
+                                  'from reading group by *,time(30m) end', database=name)
+        except Exception as e:
+            print(e)
+            raise
+
+    def all_latest_measurements(self):
+        try:
+            query = f'SELECT * FROM reading GROUP BY * ORDER BY DESC LIMIT 1'
+            return self.connection.query(query, database=self.config['database'], epoch='ms')
+        except Exception as e:
+            logging.error(f'Database query error: {str(e)}')
+            raise
+
+    def all_measurements_between(self, start, end=None):
+        try:
+            endclause = ''
+            if end is not None and end > start:
+                endclause = f'AND time <= {int(end)}ms'
+
+            query = f'SELECT * FROM one_year.downsampled_reading ' \
+                    f'WHERE time >= {int(start)}ms {endclause}' \
+                    f'GROUP BY * ORDER BY ASC'
             return self.connection.query(query, database=self.config['database'], epoch='ms')
         except Exception as e:
             logging.error(f'Database query error: {str(e)}')
@@ -112,4 +153,6 @@ class Database(AbstractDatabase):
                     else:
                         values += f',{key}={value}'
 
-        return f'{self.config["series"]}{tags} value={data["value"]}{values} {int(data["time"])}'
+        tags += ',test="hello"'
+
+        return f'reading{tags} value={data["value"]}{values} {int(data["time"])}'

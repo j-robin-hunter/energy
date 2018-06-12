@@ -26,3 +26,4 @@ class SensorReadingBase(object):
     time = graphene.Float(required=True, description='Millisecond time to associate with the value')
     id = graphene.String(description='An id, normally unique, to identify the sensor that read the value')
     value = graphene.Float(required=True, description='A single value/reading that has been taken')
+    test = graphene.String()

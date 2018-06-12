@@ -24,40 +24,23 @@ import graphene
 
 
 def resolve_measurement(root, info, id):
-    dataloader = info.context['dataloader']
+    dataloader = info.context['latestloader']
     return dataloader.load(id)
 
 
-sensor = graphene.Enum('Sensor',
-                       [
-                           ('WASHING_MACHINES', 'Washing Machines'),
-                           ('WATER_HEATER', 'Water Heater'),
-                           ('KITCHEN_ISLAND', 'Kitchen Island'),
-                           ('OVENS', 'Ovens'),
-                           ('UPSTAIRS_POWER', 'Upstairs Power'),
-                           ('KITCHEN_POWER', 'Kitchen Power'),
-                           ('OVER_GARAGE_POWER', 'Over Garage Power'),
-                           ('DOWNSTAIRS_POWER', 'Downstairs Power'),
-                           ('LIVING_ROOM_AND_DMX', 'Living Room & DMX'),
-                           ('LIGHTING', 'Lighting'),
-                           ('EVOLUTION', 'Evolution'),
-                           ('VPV1', 'Vpv1'),
-                           ('IPV1', 'Ipv1'),
-                           ('PVTOTAL', 'PVTotal'),
-                           ('VBATTERY1', 'Vbattery1'),
-                           ('IBATTERY1', 'Ibattery1'),
-                           ('SOC1', 'SOC1'),
-                           ('SOH1', 'SOH1'),
-                           ('PGRID', 'PGrid'),
-                           ('ETOTAL', 'ETotal'),
-                           ('EDAY', 'EDay'),
-                           ('LOAD_POWER', 'LoadPower'),
-                           ('E_LOAD_DAY', 'E_Load_Day'),
-                           ('E_TOTAL_LOAD', 'E_Total_Load'),
-                           ('PMETER', 'Pmeter'),
-                           ('VLOAD', "Vload")
-                       ])
+def resolve_measurements_between(root, info, id, start, end):
+    dataloader = info.context['betweenloader']
+    dataloader.start = start
+    dataloader.end = end
+    return dataloader.load(id)
 
 
 class Query(graphene.ObjectType):
-    measurement = graphene.Field(lambda: Measurement, resolver=resolve_measurement, args=dict(id=sensor()))
+    measurement = graphene.List(Measurement,
+                                resolver=resolve_measurement,
+                                id=graphene.String())
+    measurementsBetween = graphene.List(graphene.List(Measurement),
+                                        resolver=resolve_measurements_between,
+                                        id=graphene.String(),
+                                        start=graphene.Float(),
+                                        end=graphene.Float())

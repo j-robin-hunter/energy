@@ -2,15 +2,21 @@
     "configuration": {
         "latitude": 52.202857,
         "longitude": 0.399202,
-        "locale": "en_GB",
-        "providers": {
-            "grid": {
+        "locale": "en_GB"
+    },
+    "provider": [
+        {
+            "type": "grid",
+            "total_power": [
+                { "name": "", "id": "" }
+            ],
+            "detail": {
                 "tariff": {
                     "name": "Ovo Fixed",
                     "rate": [
                         {
                             "00:00:00": 0.0752,
-                            "sales_tax_percentage": 5 
+                            "sales_tax_percentage": 5
                         },
                         {
                             "00:07:00": 0.157,
@@ -20,161 +26,115 @@
                     "standing_charge": {
                         "day": 0.2877,
                         "sales_tax_percentage": 5
-                    }
+                    },
+                    "daylight_savings": true
                 },
                 "max_power": 5000
-            },
-            "solar": [
-                {
-                    "make": "Solar Centuary",
-                    "string": [
-                        {
-                            "tilt": 45,
-                            "azimuth": 180,
-                            "rating": 220
-                        }
-                    ]
-                }
-            ],
-            "battery": [
-                {
-                    "model": "LG RESU 6.5",
-                    "capacity": 126,
-                    "available_at": "25%",
-                    "max_discharge": "90%",
-                    "voltage": 51.8,
-                    "max_charge_current": 50,
-                    "max_discharge_current": 50
-                }
-            ],
-            "wind": []
-        },
-        "consumers" : []
-    },
-    "webserver": {
-        "port": 4040
-    },
-    "database" : {
-        "type": "influxdb",
-        "database": "elog",
-        "host": "192.168.1.6",
-        "port": 8086,
-        "username": "robin",
-        "password": "delta1234",
-        "series": "reading"
-    },
-    "measurement": [
-        {
-            "type": "Measurement",
-            "category": [
-                {
-                    "name": "Washing",
-                    "sensor": [
-                        { "id": "Washing Machines", "unit": "watts" }
-                    ]
-                },
-                {
-                    "name": "Heating",
-                    "sensor": [
-                        { "id": "Water Heater", "unit": "watts" },
-                        { "id": "Bathroom Heaters", "unit": "watts" }
-                    ]
-                },
-                {
-                    "name": "Cooking",
-                    "sensor": [
-                        { "id": "Kitchen Island", "unit": "watts" },
-                        { "id": "Ovens", "unit": "watts" }
-                    ]
-                },
-                {
-                    "name": "Power",
-                    "sensor": [
-                        { "id": "Upstairs Power", "unit": "watts" },
-                        { "id": "Kitchen Power", "unit": "watts" },
-                        { "id": "Over Garage Power", "unit": "watts" },
-                        { "id": "Downstairs Power", "unit": "watts" },
-                        { "id": "Living Room & DMX", "unit": "watts" }
-                    ]
-                },
-                {
-                    "name": "Lighting",
-                    "sensor": [
-                        { "id": "Lighting", "unit": "watts" },
-                        { "id": "Evolution", "unit": "watts" }
-                    ]
-                },
-                {
-                    "name": "Solar",
-                    "sensor": [
-                        { "id": "Vpv1", "unit": "volts" },
-                        { "id": "Ipv1", "unit": "amps" },
-                        { "id": "PVTotal", "unit": "watts" }
-                    ]
-                },
-                {
-                    "name": "Solar Battery",
-                    "sensor": [
-                        { "id": "Vbattery1", "unit": "volts" },
-                        { "id": "Ibattery1", "unit": "amps" },
-                        { "id": "SOC1", "unit": "percent" },
-                        { "id": "SOH1", "unit": "percent" }
-                    ]
-                },
-                {   "name": "Grid Power",
-                    "sensor": [
-                        { "id": "PGrid", "unit": "watts" },
-                        { "id": "ETotal", "unit": "watts" },
-                        { "id": "EDay", "unit": "watts" },
-                        { "id": "LoadPower", "unit": "watts" },
-                        { "id": "E_Load_Day", "unit": "watts" },
-                        { "id": "E_Total_Load", "unit": "watts" },
-                        { "id": "Pmeter", "unit": "watts" },
-                        { "id": "Vload", "unit": "volts" }
-                    ]
-                }
-            ]
-        }
-    ],
-    "module": [
-        {
-            "name": "measurement",
-            "inputs": [ "Measurement" ],
-            "input_processes": 2
+            }
         },
         {
-            "name": "enistic",
-            "outputs": [ "Washing", "Heating", "Cooking", "Power", "Lighting" ],
-            "config": {
-                "port": 53005,
-                "meters": [
-                    { "channel": 2, "name": "Washing Machines" },
-                    { "channel": 3, "name": "Living Room & DMX" },
-                    { "channel": 4, "name": "Water Heater" },
-                    { "channel": 5, "name": "Kitchen Island" },
-                    { "channel": 6, "name": "Bathroom Heaters" },
-                    { "channel": 9, "name": "Kitchen Power" },
-                    { "channel": 10, "name": "Upstairs Power" },
-                    { "channel": 11, "name": "Over Garage Power" },
-                    { "channel": 12, "name": "Downstairs Power" },
-                    { "channel": 13, "name": "Lighting" },
-                    { "channel": 14, "name": "Ovens" },
-                    { "channel": 15, "name": "Evolution" }
+            "type": "solar",
+            "total_power": { "name": "", "id": "" },
+            "detail": {
+                "make": "Solar Centuary",
+                "string": [
+                    {
+                        "tilt": 45,
+                        "azimuth": 180,
+                        "rating": 2200
+                    }
                 ]
             }
         },
         {
-            "name": "goodwe",
-            "outputs": [
-                "Solar",
-                "Solar Battery",
-                "Grid Power"
-            ],
-            "config": {
-                "host": "192.168.1.0/24",
-                "port": 8899,
-                "pvarray": 2200
+            "type": "battery",
+            "total_power" : { "name": "", "id": "" },
+            "state_of_charge": { "name": "", "id": "" },
+            "charging_power": { "name": "", "id": "" },
+            "detail": {
+                "model": "LG RESU 6.5",
+                "capacity": 126,
+                "available_at": "25%",
+                "max_discharge": "90%",
+                "voltage": 51.8,
+                "max_charge_current": 50,
+                "max_discharge_current": 50
             }
+        },
+        {
+            "type": "wind",
+            "detail": {
+
+            }
+        }
+    ],
+    "consumer" : [
+        {
+            "name": "home",
+            "total_load": [
+                { "name": "inverter one", "id": "Load Power" }
+            ],
+            "metered_load": [
+                { "name": "enistic", "id": "Washing Machines" },
+                { "name": "enistic", "id": "Water Heater" },
+                { "name": "enistic", "id": "Bathroom Heaters" },
+                { "name": "enistic", "id": "Kitchen Island" },
+                { "name": "enistic", "id": "Ovens" },
+                { "name": "enistic", "id": "Upstairs Power" },
+                { "name": "enistic", "id": "Kitchen Power" },
+                { "name": "enistic", "id": "Over Garage Power" },
+                { "name": "enistic", "id": "Downstairs Power" },
+                { "name": "enistic", "id": "Living Room & DMX" },
+                { "name": "enistic", "id": "Lighting" },
+                { "name": "enistic", "id": "Evolution" }
+            ]
+        }
+    ],
+    "webserver": {
+        "port": 4040
+    },
+    "database" : {
+        "name": "influx",
+        "type": "influxdb",
+        "database": "energy",
+        "host": "192.168.1.6",
+        "port": 8086,
+        "username": "robin",
+        "password": "delta1234"
+    },
+    "module": [
+        {
+            "name": "enistic",
+            "type": "ensitic",
+            "port": 53005,
+            "meter": [
+                { "id": "Washing Machines", "unit": "watts", "channel": 2 },
+                { "id": "Living Room & DMX", "unit": "watts", "channel": 3 },
+                { "id": "Water Heater", "unit": "watts", "channel": 4 },
+                { "id": "Kitchen Island", "unit": "watts", "channel": 5 },
+                { "id": "Bathroom Heaters", "unit": "watts", "channel": 6 },
+                { "id": "Kitchen Power", "unit": "watts", "channel": 9 },
+                { "id": "Upstairs Power", "unit": "watts", "channel": 10 },
+                { "id": "Over Garage Power", "unit": "watts", "channel": 11 },
+                { "id": "Downstairs Power", "unit": "watts", "channel": 12 },
+                { "id": "Lighting", "unit": "watts", "channel": 13 },
+                { "id": "Ovens", "unit": "watts", "channel": 14 },
+                { "id": "Evolution", "unit": "watts", "channel": 15 }
+            ]
+        },
+        {
+            "name": "inverter one",
+            "type": "goodwe_em",
+            "host": "192.168.1.80",
+            "port": 8899,
+            "meter": [
+                { "id": "Solar Power", "unit": "watts" },
+                { "id": "Battery Power", "unit": "watts" },
+                { "id": "Grid Power", "unit": "watts" },
+                { "id": "Load Power", "unit": "watts" },
+                { "id": "Battery Charge Power", "unit": "watts" },
+                { "id": "Battery State of Charge", "unit": "percent" }
+            ]
         }
     ]
 }

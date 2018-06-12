@@ -23,8 +23,8 @@ import threading
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_graphql import GraphQLView
-from data.database.dataloader import SensorReadingDataLoader
-
+from data.database.dataloaders import LatestReadingDataLoader
+from data.database.dataloaders import ReadingsBetweenDataLoader
 
 class WebServer(threading.Thread):
     def __init__(self, config, schema, database):
@@ -35,15 +35,26 @@ class WebServer(threading.Thread):
 
     def run(self):
         app = Flask(__name__)
-        CORS(app, resources={r'/graphql/*': {'origins': '*'}, r'/config/*': {'origines': '*'}})
+        CORS(app, resources={
+            r'/graphql/*': {'origins': '*'},
+            r'/config/*': {'origins': '*'}
+        })
 
         @app.route('/')
         def root():
             return app.send_static_file('index.html')
 
-        @app.route('/config')
+        @app.route('/config/configuration')
         def config():
             return jsonify(self.config['configuration'])
+
+        @app.route('/config/provider')
+        def config():
+            return jsonify(self.config['provider'])
+
+        @app.route('/config/consumer')
+        def config():
+            return jsonify(self.config['consumer'])
 
         @app.route(self.config.get('shutdown', '/shutdown'))
         def shutdown():
@@ -60,7 +71,12 @@ class WebServer(threading.Thread):
                          view_func=GraphQLView.as_view('graphql',
                                                        schema=self.schema,
                                                        graphiql=True,
-                                                       context=dict(database=self.database,
-                                                                    dataloader=SensorReadingDataLoader(self.database))))
+                                                       context=
+                                                       dict(database=self.database,
+                                                            latestloader=LatestReadingDataLoader(self.database),
+                                                            betweenloader=ReadingsBetweenDataLoader(self.database)
+                                                            )
+                                                       )
+                         )
 
         app.run(port=self.config['webserver']['port'], threaded=True)

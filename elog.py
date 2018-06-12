@@ -31,8 +31,10 @@ import lib.web
 import time
 import threading
 import data.graphql
+import copy
 import traceback
 import sys
+
 
 logging.basicConfig(
     level=logging.INFO,
