@@ -23,8 +23,24 @@ from .types import *
 import graphene
 
 
-class Query(graphene.ObjectType):
-    sensor_reading = graphene.Field(lambda: SensorReading)
+def resolve_meter_reading(root, info, id):
+    dataloader = info.context['latestloader']
+    return dataloader.load(id)
 
-    def resolve_sensor_reading(self, info):
-        return SensorReading()
+
+def resolve_meter_readings_between(root, info, id, start, end):
+    dataloader = info.context['betweenloader']
+    dataloader.start = start
+    dataloader.end = end
+    return dataloader.load(id)
+
+
+class Query(graphene.ObjectType):
+    meterReading = graphene.List(graphene.List(MeterReading),
+                                resolver=resolve_meter_reading,
+                                id=graphene.String())
+    meterReadingsBetween = graphene.List(graphene.List(MeterReading),
+                                        resolver=resolve_meter_readings_between,
+                                        id=graphene.String(),
+                                        start=graphene.Float(),
+                                        end=graphene.Float())

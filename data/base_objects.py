@@ -22,8 +22,10 @@ __version__ = "1.0.0"
 import graphene
 
 
-class SensorReadingBase(object):
+class MeterReadingBase(object):
     time = graphene.Float(required=True, description='Millisecond time to associate with the value')
-    id = graphene.String(description='An id, normally unique, to identify the sensor that read the value')
+    source = graphene.String(required=True, description='Name of the module taking the reading')
+    id = graphene.String(required=True, description='An id, normally unique, to identify the sensor that read the value')
     value = graphene.Float(required=True, description='A single value/reading that has been taken')
-    test = graphene.String()
+    unit = graphene.String(required=True, description='The units of the value/reading')
+    tariff = graphene.Float(description='Any financial value associated with the value')

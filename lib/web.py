@@ -26,6 +26,7 @@ from flask_graphql import GraphQLView
 from data.database.dataloaders import LatestReadingDataLoader
 from data.database.dataloaders import ReadingsBetweenDataLoader
 
+
 class WebServer(threading.Thread):
     def __init__(self, config, schema, database):
         super(WebServer, self).__init__()
@@ -45,16 +46,8 @@ class WebServer(threading.Thread):
             return app.send_static_file('index.html')
 
         @app.route('/config/configuration')
-        def config():
+        def configuration():
             return jsonify(self.config['configuration'])
-
-        @app.route('/config/provider')
-        def config():
-            return jsonify(self.config['provider'])
-
-        @app.route('/config/consumer')
-        def config():
-            return jsonify(self.config['consumer'])
 
         @app.route(self.config.get('shutdown', '/shutdown'))
         def shutdown():

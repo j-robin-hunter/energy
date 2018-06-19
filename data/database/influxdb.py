@@ -24,12 +24,13 @@ import influxdb
 import logging
 import requests
 import time
-from ..base_objects import SensorReadingBase
+from ..base_objects import MeterReadingBase
 
 
 class Database(AbstractDatabase):
 
-    CONNECTION_TIMEOUT = 10
+    CONNECTION_TIMEOUT = 20
+    CONNECTION_RETIES = 5
     RETRY_TIMEOUT = 5
 
     def __init__(self, config):
@@ -38,13 +39,14 @@ class Database(AbstractDatabase):
             self.connection = influxdb.InfluxDBClient(
                 host=self.config['host'],
                 port=self.config['port'],
-                timeout=self.CONNECTION_TIMEOUT)
+                timeout=self.CONNECTION_TIMEOUT,
+                retries=self.CONNECTION_RETIES)
 
             if len(list(filter(lambda database: database['name'] == self.config['database'],
                        self.connection.get_list_database()))) == 0:
                 self.init_database(self.config['database'])
 
-            logging.debug(f'  -- Database connected. '
+            logging.debug(f'-- Database connected. '
                           f'database:"{self.config["database"]}", '
                           f'"host":{self.config["host"]}, '
                           f'"port":{self.config["port"]}')
@@ -72,45 +74,22 @@ class Database(AbstractDatabase):
 
             # Create continuous queries to down sample into one year and five year retention policies
             self.connection.query(f'create continuous query "cq_5m" on {name} begin '
-                                  'select mean(value) as "mean_value" '
+                                  'select mean(value) as "value", sum(fiscal) as "fiscal"'
                                   'into "one_year"."downsampled_reading" '
                                   'from reading group by *,time(5m) end', database=name)
             self.connection.query(f'create continuous query "cq_30m" on {name} begin '
-                                  'select mean(value) as "mean_value" '
+                                  'select mean(value) as "value", sum(fiscal) as "fiscal" '
                                   'into "five_year"."downsampled_reading" '
                                   'from reading group by *,time(30m) end', database=name)
-        except Exception as e:
-            print(e)
+        except Exception:
             raise
 
-    def all_latest_measurements(self):
-        try:
-            query = f'SELECT * FROM reading GROUP BY * ORDER BY DESC LIMIT 1'
-            return self.connection.query(query, database=self.config['database'], epoch='ms')
-        except Exception as e:
-            logging.error(f'Database query error: {str(e)}')
-            raise
-
-    def all_measurements_between(self, start, end=None):
-        try:
-            endclause = ''
-            if end is not None and end > start:
-                endclause = f'AND time <= {int(end)}ms'
-
-            query = f'SELECT * FROM one_year.downsampled_reading ' \
-                    f'WHERE time >= {int(start)}ms {endclause}' \
-                    f'GROUP BY * ORDER BY ASC'
-            return self.connection.query(query, database=self.config['database'], epoch='ms')
-        except Exception as e:
-            logging.error(f'Database query error: {str(e)}')
-            raise
-
-    def write_measurement(self, measurement):
+    def write_meter_reading(self, meter_reading):
         # Since this is an HTTP request it could fail. Stay in a loop retrying until the call either
         # succeeds or the program dies due to other errors, for example queue full
         while True:
             try:
-                line = self._convert_data(measurement)
+                line = self._convert_data(meter_reading)
                 logging.debug(f'Writing data to database: {line}')
                 if self.connection.write(line,
                                          {'db': self.config['database'], 'precision': 'ms'},
@@ -129,17 +108,18 @@ class Database(AbstractDatabase):
 
     def _convert_data(self, data):
         # Convert data to InfluxDB line format
-        logging.debug('Converting Measurement to InfluxDB line format')
+        logging.debug('Converting MeterReading to InfluxDB line format')
 
         # All entries in Point are tag values except value and timestamp.
         # All remaining entries in the passed data pertain to the actual
         # sensor so are used as additional values to reduce the number of
         # series in the InfluxDB schema
-        point_vars = [v for v in dir(SensorReadingBase()) if not v.startswith('_')]
+        point_vars = [v for v in dir(MeterReadingBase()) if not v.startswith('_')]
         tags = ''
         values = ''
+        fiscal = ''
         for key, value in data.items():
-            if key != 'value' and key != 'time':
+            if key != 'value' and key != 'time' and key != 'fiscal':
                 if key in point_vars:
                     # Must escape all commas and spaces. Numeric and string
                     # tags are left unquoted, unlike values
@@ -153,6 +133,26 @@ class Database(AbstractDatabase):
                     else:
                         values += f',{key}={value}'
 
-        tags += ',test="hello"'
+        return f'reading{tags} value={data["value"]},fiscal={data.get("fiscal", 0)} {values} {int(data["time"])}'
 
-        return f'reading{tags} value={data["value"]}{values} {int(data["time"])}'
+    def all_latest_meter_readings(self):
+        try:
+            query = f'SELECT * FROM reading GROUP BY * ORDER BY DESC LIMIT 1'
+            return self.connection.query(query, database=self.config['database'], epoch='ms')
+        except Exception as e:
+            logging.error(f'Database query error: {str(e)}')
+            raise
+
+    def all_meter_readings_between(self, start, end=None):
+        try:
+            endclause = ''
+            if end is not None and end > start:
+                endclause = f'AND time <= {int(end)}ms'
+
+            query = f'SELECT * FROM one_year.downsampled_reading ' \
+                    f'WHERE time >= {int(start)}ms {endclause}' \
+                    f'GROUP BY * ORDER BY ASC'
+            return self.connection.query(query, database=self.config['database'], epoch='ms')
+        except Exception as e:
+            logging.error(f'Database query error: {str(e)}')
+            raise

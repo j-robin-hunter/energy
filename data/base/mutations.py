@@ -23,18 +23,18 @@ from .types import *
 import graphene
 
 
-class MeasurementInput(MeasurementBase, graphene.InputObjectType):
+class MeterReadingInput(MeterReadingBase, graphene.InputObjectType):
     pass
 
 
-class CreateMeasurement(Measurement, graphene.Mutation):
+class CreateMeterReading(MeterReading, graphene.Mutation):
     class Arguments:
-        measurement = MeasurementInput()
+        meter_reading = MeterReadingInput()
 
-    def mutate(self, info, measurement):
-        info.context['database'].write_measurement(measurement)
-        return CreateMeasurement(**measurement)
+    def mutate(self, info, meter_reading):
+        info.context['database'].write_meter_reading(meter_reading)
+        return CreateMeterReading(**meter_reading)
 
 
 class Mutations(graphene.ObjectType):
-    create_measurement = CreateMeasurement.Field()
+    create_meter_reading = CreateMeterReading.Field()

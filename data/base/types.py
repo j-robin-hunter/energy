@@ -20,10 +20,10 @@ __status__ = "Production"
 __version__ = "1.0.0"
 
 import graphene
-from data.base_objects import SensorReadingBase
+from data.base_objects import MeterReadingBase
 
 
-class SensorReading(SensorReadingBase, graphene.ObjectType):
+class MeterReading(MeterReadingBase, graphene.ObjectType):
     """
     Details when and what has been read from a sensor
     """

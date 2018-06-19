@@ -23,6 +23,8 @@ from lib.abstract import AbstractModule
 import socket
 import re
 import logging
+from datetime import datetime
+import time
 
 
 def get_number(x):
@@ -30,17 +32,16 @@ def get_number(x):
 
 
 class Module(AbstractModule):
-    def __init__(self, module):
-        super().__init__(module)
+    def __init__(self, module, schema, database, tariff):
+        super().__init__(module, schema, database, tariff)
         try:
-            self.modelName = None
-            self.serialNumber = None
-
-            self.meter_port = self.get_config_value('port')
-            self.meters = self.get_config_value('meters')
+            self.model_name = None
+            self.serial_number = None
+            self.enistic_time_offset = None
+            self.last_reading_time = 0
 
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.sock.bind(('0.0.0.0', self.meter_port))
+            self.sock.bind(('0.0.0.0', self.module['port']))
         except KeyError as e:
             logging.error('Invalid key %s in %s configuration' % (str(e), self.getName()))
             raise RuntimeError('Error in %s plugin configuration' % self.getName())
@@ -56,38 +57,59 @@ class Module(AbstractModule):
         try:
             data, addr = self.sock.recvfrom(4096)
             index = data.find(b"D1")
-            if index > 0 and self.serialNumber is not None and self.modelName is not None:
+            if index > 0 and self.enistic_time_offset is not None:
                 logging.debug('Enistic meter reading "%s"', data)
+                reading_time = \
+                    self.enistic_time_to_now(re.search('\d*\/\d*\/\d*\/\d*\/\d*\/\d*', data.decode('utf-8')).group(0))\
+                    + self.enistic_time_offset
                 tokens = data[index:len(data)].decode('utf-8').split(',')
                 if len(tokens) >= 6:
                     try:
-                        meter_reading = get_number(tokens[3])
-                        sensor_id = list(
-                                filter(lambda meter: meter['channel'] == get_number(tokens[5]), self.meters)
-                            )[0].get('name')
+                        meter_reading = get_number(tokens[3]) / 1000
+                        meter = list(
+                                filter(lambda meter: meter['channel'] == get_number(tokens[5]), self.module['meter'])
+                            )[0]
+                        if reading_time != self.last_reading_time:
+                            self.write_meter_reading(
+                                time=reading_time * 1000,
+                                source=self.module['name'],
+                                id=meter['id'],
+                                value=meter_reading,
+                                unit='watts')
+                            self.last_reading_time = reading_time
 
-                        logging.debug('Writing Enisitic data to measurement queue')
-                        self.send_output_data(
-                            sensor_id,
-                            value=meter_reading / 1000,
-                            sn=self.serialNumber,
-                            model=self.modelName,
-                            lat=52.2,
-                            lon=0.3)
                     # Ignore index as it is a meter that has not been defined as having a
                     # channel/name lookup
                     except IndexError:
                         pass
             else:
                 try:
-                    self.serialNumber = re.search('Core:Serial=(.+?)\r', data.decode('utf-8')).group(1)
-                    logging.debug('Enistic serial number record "%s"', data)
+                    self.enistic_time_offset = round(time.time()) - self.enistic_time_to_now(
+                                         re.search('Status:TimeNow=(.+?)\r', data.decode('utf-8')).group(1))
                 except AttributeError:
                     try:
-                        self.modelName = re.search('Status:Model=(.+?)\r', data.decode('utf-8')).group(1)
-                        logging.debug('Enistic model name record "%s"', data)
+                        if self.serial_number is None:
+                            self.serial_number = re.search('Core:Serial=(.+?)\r', data.decode('utf-8')).group(1)
+                            logging.info(f'Serial number for module "{self.module["name"]}"'
+                                         f' is "{self.serial_number}"')
                     except AttributeError:
-                        pass
+                        try:
+                            if self.model_name is None:
+                                self.model_name = re.search('Status:Model=(.+?)\r', data.decode('utf-8')).group(1)
+                                logging.info(f'Model name for module "{self.module["name"]}"'
+                                             f' is "{self.model_name}"')
+                        except AttributeError:
+                            pass
         except Exception as e:
             logging.error(str(e))
             raise RuntimeError(str(e))
+
+    def enistic_time_to_now(self, enistic_time):
+        # The clock on the enistic meter is not capable of being set and it does not
+        # keep very good time. It does however report it's time (reset to 1st Jan 2000 on power cycle)
+        # every minute or so and this can be used to adjust each data reading to a close approximation
+        # to 'real time' (+- 3 seconds or so). There is a 'risk' that a power cycle of the enistic meter
+        # will result in a small number or readings (less than 6 or so) going backwards by a considerable
+        # period. The impact of this happening is minimal so this risk is not coded for.
+        t = enistic_time.split('/')
+        return round(datetime(int(t[2]), int(t[1]), int(t[0]), int(t[3]), int(t[4]), int(t[5])).timestamp())

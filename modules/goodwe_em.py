@@ -23,6 +23,7 @@ from lib.abstract import AbstractModule, millis, sleep
 import socket
 import ipaddress
 import logging
+import time
 
 
 def calculate_crc(buffer):
@@ -112,8 +113,8 @@ class Module(AbstractModule):
         'Pmeter': [SHORT, 1]
     }
 
-    def __init__(self, module):
-        super().__init__(module)
+    def __init__(self, module, schema, database, tariff):
+        super().__init__(module, schema, database, tariff)
         self.state = self.OFFLINE
         self.statetime = millis()
         self.lastReceived = millis()
@@ -121,13 +122,13 @@ class Module(AbstractModule):
         self.ap_address = 0x7f
         self.inverter_address = 0xB0
 
-        self.idinfo = {}
+        self.idinfo = None
 
         # Using broadcast will allow setting of either a single address or a bit masked address
         # for the inverter in the configuration
         self.addr = str(
-            ipaddress.IPv4Network(self.get_config_value('host'), strict=False).broadcast_address), \
-                    self.get_config_value('port')
+            ipaddress.IPv4Network(self.module['host'], strict=False).broadcast_address), \
+                    self.module['port']
 
         # Set socket up to allow UDP with broadcast
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -154,6 +155,7 @@ class Module(AbstractModule):
             self._send(self.CC_READ, self.FC_QRYID)
             self.state = self.RUNNING
             self.statetime = millis()
+            self.lasttariff = {}
 
         self._send(self.CC_READ, self.FC_QRYRUN)
 
@@ -218,7 +220,8 @@ class Module(AbstractModule):
                 # Hard coded array indexes below are ok as the data length has been verified
                 # and the indexes are defined by the protocol
                 ptr = 7
-                for sensor_name, decode in self.single_phase.items():
+                readings = {}
+                for meter_id, decode in self.single_phase.items():
                     value = 0
                     if decode[0] == self.CHAR:
                         value = int.from_bytes(response[ptr:ptr + 1], byteorder='big', signed=True)
@@ -232,34 +235,100 @@ class Module(AbstractModule):
                     else:
                         pass
 
-                    value = value / decode[1]
-                    # LoadPower can generate spurious numbers so do not send these
-                    if sensor_name == 'LoadPower' and value > 250000:
-                        logging.warning(f'Spurious LoadPower value: {value}')
-                    else:
-                        self.send_output_data(
-                            sensor_name,
-                            value=value,
-                            sn=self.idinfo['serialNumber'],
-                            model=self.idinfo['modelName'],
-                            lat=52.2,
-                            lon=0.3)
+                    readings[meter_id] = value / decode[1]
+
+                # LoadPower can generate spurious numbers so do not send these
+                if readings.get('LoadPower', 250000) >= 250000:
+                    logging.warning(f'Spurious LoadPower value: {readings.get("LoadPower", 250000)}')
+                else:
+                    self.meter_readings(readings)
+
             except Exception:
                 raise  # Raise all other errors
+
+    def meter_readings(self, readings):
+        try:
+            for meter in self.module['meter']:
+                if meter['reading'] == 'pv1':
+                    self.add_tariff(
+                        time=int(round(time.time() * 1000)),
+                        source=self.module['name'],
+                        id=meter['id'],
+                        value=readings['Vpv1'] * readings['Ipv1'],
+                        unit='watts')
+                elif meter['reading'] == 'pv2':
+                    self.add_tariff(
+                        time=int(round(time.time() * 1000)),
+                        source=self.module['name'],
+                        id=meter['id'],
+                        value=readings['Vpv2'] * readings['Ipv2'],
+                        unit='watts')
+                elif meter['reading'] == 'battery1':
+                    self.add_tariff(
+                        time=int(round(time.time() * 1000)),
+                        source=self.module['name'],
+                        id=meter['id'],
+                        value=readings['Vbattery1'] * readings['Ibattery1'],
+                        unit='watts')
+                elif meter['reading'] == 'grid':
+                    self.add_tariff(
+                        time=int(round(time.time() * 1000)),
+                        source=self.module['name'],
+                        id=meter['id'],
+                        value=readings['PGrid'],
+                        unit='watts')
+                elif meter['reading'] == 'load':
+                    self.add_tariff(
+                        time=int(round(time.time() * 1000)),
+                        source=self.module['name'],
+                        id=meter['id'],
+                        value=readings['LoadPower'],
+                        unit='watts')
+                elif meter['reading'] == 'soc1':
+                    self.add_tariff(
+                        time=int(round(time.time() * 1000)),
+                        source=self.module['name'],
+                        id=meter['id'],
+                        value=readings['SOC1'] * (readings['SOH1'] / 100),
+                        unit='percent')
+
+        except KeyError as e:
+            logging.critical(f'Missing or mistyped key {str(e)} from module "{self.module["name"]}" configuration')
+            raise
+
+    def add_tariff(self, **kwargs):
+        for tariff in [d for d in self.tariff
+                       if d['meter']['id'] == kwargs['id'] and d['meter']['source'] == kwargs['source']]:
+            print(kwargs['id'], tariff['name'], self.lasttariff)
+            meter_values = tariff['meter'].get('meter_values', 'positive')
+            if meter_values == 'negative' and kwargs['value'] < 0:
+                self.lasttariff[kwargs['id']] = dict(time=kwargs['time'],
+                                                     value=kwargs['value'],
+                                                     tariff=tariff['name'])
+            else:
+                self.lasttariff[kwargs['id']] = dict(time=kwargs['time'],
+                                                     value=kwargs['value'],
+                                                     tariff=tariff['name'])
+
+        self.write_meter_reading(**kwargs)
 
     def _id(self, response):
         try:
             # Hard coded array indexes below are ok as the data length has been verified
             # and the indexes are defined by the protocol
-            response = response[7:]
-            self.idinfo = dict(
-                firmwareVersion=response[0:5].decode('utf-8'),
-                modelName=response[5:15].decode('utf-8'),
-                manufacturer=response[15:31].replace(b'\xff', b'\x20').decode('utf-8'),
-                serialNumber=response[31:47].decode('utf-8'),
-                nominalVpv=response[47:51].decode('utf-8'),
-                internalVersion=response[51:63].decode('utf-8'),
-                safetyCountryCode=response[63])
+            if self.idinfo is None:
+                response = response[7:]
+                self.idinfo = dict(
+                    firmwareVersion=response[0:5].decode('utf-8'),
+                    modelName=response[5:15].decode('utf-8'),
+                    manufacturer=response[15:31].replace(b'\xff', b'\x20').decode('utf-8'),
+                    serialNumber=response[31:47].decode('utf-8'),
+                    nominalVpv=response[47:51].decode('utf-8'),
+                    internalVersion=response[51:63].decode('utf-8'),
+                    safetyCountryCode=response[63])
+                logging.info(f'Serial number for module "{self.module["name"]}" is "{self.idinfo["serialNumber"]}"')
+                logging.info(f'Model name for module "{self.module["name"]}" is "{self.idinfo["modelName"]}"')
+
         except Exception:
             raise  # Raise all other errors
 

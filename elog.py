@@ -22,7 +22,6 @@ __version__ = "1.0.0"
 from urllib import request
 import json
 from urllib.parse import urlparse
-from queue import Queue
 import argparse
 import logging
 import importlib
@@ -31,9 +30,6 @@ import lib.web
 import time
 import threading
 import data.graphql
-import copy
-import traceback
-import sys
 
 
 logging.basicConfig(
@@ -50,11 +46,11 @@ def read_config(config):
 
     try:
         if parse_result.scheme in ('http', 'https'):
-            logging.debug('  -- HTTP(s) based configuration file')
+            logging.debug('-- HTTP(s) based configuration file')
             response = request.urlopen(config)
             config_data = response.read().decode('utf-8')
         else:
-            logging.debug('  -- File based configuration file')
+            logging.debug('-- File based configuration file')
             with open(config) as configFile:
                 config_data = configFile.read()
 
@@ -101,12 +97,8 @@ def connect_database(config):
 
 def main():
     modules = set()
-    # noinspection PyBroadException
     try:
         config = read_config(args.config)
-
-        # Program variables that can be set in config file
-        max_queue_size = config.get('max_queue_size', 1000)
 
         configure_logging(config)
 
@@ -122,85 +114,27 @@ def main():
         start_webserver(config, schema, database)
         time.sleep(1)  # wait to allow server to start
 
-        # Process all sensors adding the correct measurement class to each.
-        sensors = []
-        logging.info('Reading measurements')
-        for measurement in config['measurement']:
-            logging.debug(f'  -- Injecting schema type into measurement "{measurement["type"]}"')
-            measurement_class = None
-            for schema_type in schema.types:
-                if measurement['type'] == str(schema_type):
-                    measurement_class = schema_type
-                    break
-            if measurement_class is None:
-                logging.error(f'No schema defined for for measurement "{measurement["type"]}"')
-                raise RuntimeError('No schema definition for measurement type')
-
-            for category in measurement['category']:
-                logging.debug(f'    -- Processing sensors for category "{category["name"]}"')
-                for sensor in category['sensor']:
-                    logging.debug(f'      -- Collating data for sensor "{sensor["id"]}"')
-                    sensor['measurement'] = measurement['type']
-                    sensor['category'] = category['name']
-                    sensors.append(dict(
-                        type=measurement['type'],
-                        sensor=sensor
-                    ))
-
-        # Process all modules. Ensure that there are no duplicates in terms of name
         logging.info('Reading modules')
-        queues = {}
         for module in config['module']:
-            logging.debug(f'  -- Module "{module["name"]}"')
+            logging.debug(f'-- Module "{module["name"]}"')
             if {True for mod in modules if mod == module['name']} != set():
-                logging.error('Duplicate module "{module["name"]}" defined in configuration file')
+                logging.error(f'Duplicate module "{module["name"]}" defined in configuration file')
                 raise RuntimeError(f'Duplicate "module" definition for "{module["name"]}" found in configuration file')
-
-            if module.get('inputs', None):
-                logging.debug('    -- Processing module inputs')
-                for measurement in module['inputs']:
-                    queues[measurement] = Queue()
-                module['schema'] = schema
-                module['database'] = database
-
-            # Re-add outputs to each module using the 'extended' definition that also
-            # includes the measurement class
-            if module.get('outputs', None):
-                logging.debug('    -- Processing module outputs')
-                module['output_types'] = {sensor['type'] for sensor in sensors
-                                          if sensor['sensor']['category'] in module.get('outputs', [])}
-                module['outputs'] = [sensor['sensor']
-                                     for sensor in sensors
-                                     if sensor['sensor']['category'] in module.get('outputs', [])]
             modules.add(module['name'])
-
-        # Start each module as a thread. A second loop is used to ensure that the data passed to the
-        # module constructor is complete - for example all queue information
-        for module in config['module']:
-            logging.debug('Injecting queues into module')
-            module['queues'] = queues
-            logging.info(f'Importing and instantiating module "{module["name"]}"')
-            imported = importlib.import_module(f'.{module["name"]}', package=MODULES_PACKAGE)
-            instance = imported.Module(module)
+            logging.info(f'---- Importing and instantiating module type "{module["type"]}"')
+            imported = importlib.import_module(f'.{module["type"]}', package=MODULES_PACKAGE)
+            instance = imported.Module(module, schema, database, config['configuration'].get('tariff', None))
             instance.setName(module['name'])
-            logging.debug('  -- Starting module worker thread')
+            logging.debug('---- Starting module worker thread')
             instance.start()
-
         logging.info('Program started')
 
         # Stay in a loop monitoring queue size to ensure that no queue start to overfill.
         # If it does terminate program. While in loop verify that all module threads are still
         # running. If any have stopped then terminate the program
         while True:
-            logging.info('Verifying program run status')
             time.sleep(10)
-
-            logging.debug('  -- Check all queue sizes')
-            for key in queues:
-                logging.debug(f'    -- Queue "{key}" current size: {queues[key].qsize()}')
-                if queues[key].qsize() >= max_queue_size:
-                    logging.critical(f'Queue(s) "{key}" oversize, terminating program')
-                    raise RuntimeError('Queue oversize')
+            logging.debug('Verifying program run status')
 
             logging.debug('  -- Check all running threads')
             running_threads = set([thread.getName() for thread in threading.enumerate()])
