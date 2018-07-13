@@ -24,6 +24,7 @@ import threading
 import logging
 import time
 from promise.dataloader import DataLoader
+import locale
 
 
 def millis():
@@ -82,7 +83,7 @@ class AbstractModule(ABC, threading.Thread):
         self.schema = schema
         self.database = database
         self.tariff = tariff
-        self.QUEUE_TIMEOUT = 0.1
+        self.lasttariff = dict()
 
     @abstractmethod
     def __del__(self):
@@ -119,6 +120,95 @@ class AbstractModule(ABC, threading.Thread):
             ''',
             variable_values={
                 "reading": kwargs
+            },
+            context_value={"database": self.database}
+        )
+        if result.errors:
+            logging.error(result.errors)
+            raise RuntimeError("Error in GraphQL mutation")
+
+        self.write_tariff(**kwargs)
+
+    def write_tariff(self, **kwargs):
+        if self.lasttariff.get(kwargs['id'], None) is not None:
+            delta = (kwargs['time'] - self.lasttariff[kwargs['id']]['read_at']) / 1000
+            tariff = dict(
+                time=self.lasttariff[kwargs['id']]['time'],
+                id=kwargs['id'],
+                amount=abs((kwargs['reading'] / 1000) * self.lasttariff[kwargs['id']]['rate'] * delta),
+                tariff=self.lasttariff[kwargs['id']]['tariff'],
+                tax=self.lasttariff[kwargs['id']]['tax'],
+                type=self.lasttariff[kwargs['id']]['type'],
+                name=self.lasttariff[kwargs['id']]['name'],
+                rateid=self.lasttariff[kwargs['id']]['rateid']
+            )
+            result = self.schema.execute(
+                '''
+                mutation CreateMeterTariff($tariff: MeterTariffInput!) {
+                    createMeterTariff(meterTariff: $tariff) {
+                        time
+                    }
+                }
+                ''',
+                variable_values={
+                    "tariff": tariff
+                },
+                context_value={"database": self.database}
+            )
+            if result.errors:
+                logging.error(result.errors)
+                raise RuntimeError("Error in GraphQL mutation")
+
+        for tariffs in [d for d in self.tariff
+                        if d['meter']['id'] == kwargs['id'] and d['meter']['source'] == kwargs['source']]:
+            meter_values = tariffs['meter'].get('meter_values', 'both')
+
+            # While the if...else here looks to be doing the same thing
+            # in each part they are processing different ids and hence
+            # different tariff entries
+            if meter_values == 'negative' and kwargs['reading'] < 0:
+                self.process_tariff(tariffs, **kwargs)
+            elif meter_values == 'positive' and kwargs['reading'] >= 0:
+                self.process_tariff(tariffs, **kwargs)
+            elif meter_values == 'both':
+                self.process_tariff(tariffs, **kwargs)
+
+    def process_tariff(self, tariffs, **kwargs):
+        try:
+            rate = 0
+            for i in range(len(tariffs['rate']) - 1, -1, -1):
+                tax = 1 + float(tariffs['rate'][i]['tax'].strip('%')) / 100.0
+                rate = tariffs['rate'][i]['amount'] / 3600 * tax
+                h, m, s = tariffs['rate'][i]['start'].split(':')
+                rate_start = int(h) * 3600 + int(m) * 60 + int(s)
+                if int((kwargs['time'] / 1000) % 86400) >= rate_start:
+                    break
+
+            self.lasttariff[kwargs['id']] = dict(time=kwargs['time'],
+                                                 reading=kwargs['reading'],
+                                                 read_at=kwargs['time'],
+                                                 rate=rate,
+                                                 tariff=str(tariffs['rate'][i]['amount'])
+                                                 + '/'
+                                                 + tariffs['rate'][i]['unit'],
+                                                 tax=tariffs['rate'][i]['tax'],
+                                                 type=tariffs['type'],
+                                                 name=tariffs['name'],
+                                                 rateid=tariffs['rate'][i].get('rateid', ''))
+        except Exception:
+            raise
+
+    def write_meter_tariff(self, **kwargs):
+        result = self.schema.execute(
+            '''
+            mutation CreateMeterTariff($reading: MeterTariffInput!) {
+                createMeterTariff(meterTariff: $tariff) {
+                    time
+                }
+            }
+            ''',
+            variable_values={
+                "tariff": kwargs
             },
             context_value={"database": self.database}
         )

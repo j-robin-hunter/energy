@@ -69,55 +69,54 @@ class Module(AbstractModule):
 
     # GoodWe single phase run response packet data items decode dictionary. It contains the
     # name of the packet, it's size and a 'divisor' needed to return the data to the precision
-    # units specified in the GoodWe protocol.
+    # of the units specified in the GoodWe protocol and scale/sign required for display
     single_phase = {
-        'Vpv1': [SHORT, 10],
-        'Vpv2': [SHORT, 10],
-        'Ipv1': [SHORT, 10],
-        'Ipv2': [SHORT, 10],
-        'Vac1': [SHORT, 10],
-        'Iac1': [SHORT, 10],
-        'Fac1': [SHORT, 100],
-        'PGrid': [SHORT, 1],
-        'WorkMode': [SHORT, 1],
-        'Temperature': [SHORT, 10],
-        'ErrorMessage': [LONG, 1],
-        'ETotal': [LONG, 10],
-        'HTotal': [LONG, 1],
-        'SoftVersion': [SHORT, 1],
-        'WarningCode': [SHORT, 1],
-        'PV2FaultValue': [SHORT, 10],
-        'FunctionsBitValue': [SHORT, 1],
-        'BUSVoltage': [SHORT, 10],
-        'GFCICheckValue_SafetyCountry': [SHORT, 1],
-        'EDay': [SHORT, 10],
-        'Vbattery1': [SHORT, 10],
-        'Errorcode': [SHORT, 1],
-        'SOC1': [SHORT, 1],
-        'Ibattery1': [SHORT, 10],
-        'PVTotal': [SHORT, 10],
-        'LoadPower': [LONG, 1],
-        'E_Load_Day': [SHORT, 10],
-        'E_Total_Load': [LONG, 10],
-        'InverterPower': [SHORT, 1],
-        'Vload': [SHORT, 10],
-        'Iload': [SHORT, 10],
-        'OperationMode': [SHORT, 1],
-        'BMS_Alarm': [SHORT, 1],
-        'BMS_Warning': [SHORT, 1],
-        'SOH1': [SHORT, 1],
-        'BMS_Temperature': [SHORT, 10],
-        'BMS_Charge_I_Max': [SHORT, 1],
-        'BMS_Discharge_I_Max': [SHORT, 1],
-        'Battery_Work_Mode': [SHORT, 1],
-        'Pmeter': [SHORT, 1]
+        'Vpv1': [SHORT, 10, 1],
+        'Vpv2': [SHORT, 10, 1],
+        'Ipv1': [SHORT, 10, 1],
+        'Ipv2': [SHORT, 10, 1],
+        'Vac1': [SHORT, 10, 1],
+        'Iac1': [SHORT, 10, 1],
+        'Fac1': [SHORT, 100, 1],
+        'PGrid': [SHORT, 1, -1],
+        'WorkMode': [SHORT, 1, 1],
+        'Temperature': [SHORT, 10, 1],
+        'ErrorMessage': [LONG, 1, 1],
+        'ETotal': [LONG, 10, 1],
+        'HTotal': [LONG, 1, 1],
+        'SoftVersion': [SHORT, 1, 1],
+        'WarningCode': [SHORT, 1, 1],
+        'PV2FaultValue': [SHORT, 10, 1],
+        'FunctionsBitValue': [SHORT, 1, 1],
+        'BUSVoltage': [SHORT, 10, 1],
+        'GFCICheckValue_SafetyCountry': [SHORT, 1, 1],
+        'EDay': [SHORT, 10, 1, 1],
+        'Vbattery1': [SHORT, 10, 1, 1],
+        'Errorcode': [SHORT, 1, 1],
+        'SOC1': [SHORT, 1, 1],
+        'Ibattery1': [SHORT, 10, 1],
+        'PVTotal': [SHORT, 10, 1],
+        'LoadPower': [LONG, 1, 1],
+        'E_Load_Day': [SHORT, 10, 1],
+        'E_Total_Load': [LONG, 10, 1],
+        'InverterPower': [SHORT, 1, 1],
+        'Vload': [SHORT, 10, 1],
+        'Iload': [SHORT, 10, 1],
+        'OperationMode': [SHORT, 1, 1],
+        'BMS_Alarm': [SHORT, 1, 1],
+        'BMS_Warning': [SHORT, 1, 1],
+        'SOH1': [SHORT, 1, 1],
+        'BMS_Temperature': [SHORT, 10, 1],
+        'BMS_Charge_I_Max': [SHORT, 1, 1],
+        'BMS_Discharge_I_Max': [SHORT, 1, 1],
+        'Battery_Work_Mode': [SHORT, 1, 1],
+        'Pmeter': [SHORT, 1, 1]
     }
 
     def __init__(self, module, schema, database, tariff):
         super().__init__(module, schema, database, tariff)
         self.state = self.OFFLINE
         self.statetime = millis()
-        self.lastReceived = millis()
 
         self.ap_address = 0x7f
         self.inverter_address = 0xB0
@@ -127,8 +126,7 @@ class Module(AbstractModule):
         # Using broadcast will allow setting of either a single address or a bit masked address
         # for the inverter in the configuration
         self.addr = str(
-            ipaddress.IPv4Network(self.module['host'], strict=False).broadcast_address), \
-                    self.module['port']
+            ipaddress.IPv4Network(self.module['host'], strict=False).broadcast_address), self.module['port']
 
         # Set socket up to allow UDP with broadcast
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -155,7 +153,6 @@ class Module(AbstractModule):
             self._send(self.CC_READ, self.FC_QRYID)
             self.state = self.RUNNING
             self.statetime = millis()
-            self.lasttariff = {}
 
         self._send(self.CC_READ, self.FC_QRYRUN)
 
@@ -235,7 +232,7 @@ class Module(AbstractModule):
                     else:
                         pass
 
-                    readings[meter_id] = value / decode[1]
+                    readings[meter_id] = (value / decode[1]) * decode[2]
 
                 # LoadPower can generate spurious numbers so do not send these
                 if readings.get('LoadPower', 250000) >= 250000:
@@ -250,67 +247,51 @@ class Module(AbstractModule):
         try:
             for meter in self.module['meter']:
                 if meter['reading'] == 'pv1':
-                    self.add_tariff(
+                    self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
                         source=self.module['name'],
                         id=meter['id'],
-                        value=readings['Vpv1'] * readings['Ipv1'],
+                        reading=readings['Vpv1'] * readings['Ipv1'],
                         unit='watts')
                 elif meter['reading'] == 'pv2':
-                    self.add_tariff(
+                    self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
                         source=self.module['name'],
                         id=meter['id'],
-                        value=readings['Vpv2'] * readings['Ipv2'],
+                        reading=readings['Vpv2'] * readings['Ipv2'],
                         unit='watts')
                 elif meter['reading'] == 'battery1':
-                    self.add_tariff(
+                    self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
                         source=self.module['name'],
                         id=meter['id'],
-                        value=readings['Vbattery1'] * readings['Ibattery1'],
+                        reading=readings['Vbattery1'] * readings['Ibattery1'],
                         unit='watts')
                 elif meter['reading'] == 'grid':
-                    self.add_tariff(
+                    self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
                         source=self.module['name'],
                         id=meter['id'],
-                        value=readings['PGrid'],
+                        reading=readings['PGrid'],
                         unit='watts')
                 elif meter['reading'] == 'load':
-                    self.add_tariff(
+                    self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
                         source=self.module['name'],
                         id=meter['id'],
-                        value=readings['LoadPower'],
+                        reading=readings['LoadPower'],
                         unit='watts')
                 elif meter['reading'] == 'soc1':
-                    self.add_tariff(
+                    self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
                         source=self.module['name'],
                         id=meter['id'],
-                        value=readings['SOC1'] * (readings['SOH1'] / 100),
+                        reading=readings['SOC1'] * (readings['SOH1'] / 100),
                         unit='percent')
 
         except KeyError as e:
             logging.critical(f'Missing or mistyped key {str(e)} from module "{self.module["name"]}" configuration')
             raise
-
-    def add_tariff(self, **kwargs):
-        for tariff in [d for d in self.tariff
-                       if d['meter']['id'] == kwargs['id'] and d['meter']['source'] == kwargs['source']]:
-            print(kwargs['id'], tariff['name'], self.lasttariff)
-            meter_values = tariff['meter'].get('meter_values', 'positive')
-            if meter_values == 'negative' and kwargs['value'] < 0:
-                self.lasttariff[kwargs['id']] = dict(time=kwargs['time'],
-                                                     value=kwargs['value'],
-                                                     tariff=tariff['name'])
-            else:
-                self.lasttariff[kwargs['id']] = dict(time=kwargs['time'],
-                                                     value=kwargs['value'],
-                                                     tariff=tariff['name'])
-
-        self.write_meter_reading(**kwargs)
 
     def _id(self, response):
         try:

@@ -25,7 +25,17 @@ import graphene
 class MeterReadingBase(object):
     time = graphene.Float(required=True, description='Millisecond time to associate with the value')
     source = graphene.String(required=True, description='Name of the module taking the reading')
-    id = graphene.String(required=True, description='An id, normally unique, to identify the sensor that read the value')
-    value = graphene.Float(required=True, description='A single value/reading that has been taken')
+    id = graphene.String(required=True, description='A normally unique id to identify the meter that read the value')
+    reading = graphene.Float(required=True, description='A single value/reading that has been taken')
     unit = graphene.String(required=True, description='The units of the value/reading')
-    tariff = graphene.Float(description='Any financial value associated with the value')
+
+
+class MeterTariffBase(object):
+    time = graphene.Float(required=True, description='Millisecond time to associate with the tariff')
+    id = graphene.String(required=True, description='The id to identify the meter associated with the tariff')
+    name = graphene.String(required=True, description='The name of the tariff')
+    amount = graphene.Float(required=True, description='The monetary amount applied since the previous reading')
+    tariff = graphene.String(required=True, description='The applied tariff rate')
+    tax = graphene.String(required=True, description='The tax rate applied to the tariff')
+    rateid = graphene.String(required=True, description='The id used to identify a differential rate')
+    type = graphene.String(required=True, description='The type of tariff associated with the reading')

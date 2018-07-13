@@ -30,6 +30,7 @@ import lib.web
 import time
 import threading
 import data.graphql
+import locale
 
 
 logging.basicConfig(
@@ -99,6 +100,7 @@ def main():
     modules = set()
     try:
         config = read_config(args.config)
+        locale.setlocale(locale.LC_ALL, config['configuration'].get('locale', ''))
 
         configure_logging(config)
 
@@ -123,7 +125,10 @@ def main():
             modules.add(module['name'])
             logging.info(f'---- Importing and instantiating module type "{module["type"]}"')
             imported = importlib.import_module(f'.{module["type"]}', package=MODULES_PACKAGE)
-            instance = imported.Module(module, schema, database, config['configuration'].get('tariff', None))
+            instance = imported.Module(module,
+                                       schema,
+                                       database,
+                                       config['configuration'].get('tariff', None))
             instance.setName(module['name'])
             logging.debug('---- Starting module worker thread')
             instance.start()

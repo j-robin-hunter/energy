@@ -19,12 +19,18 @@ __license__ = "GPLv3"
 __status__ = "Production"
 __version__ = "1.0.0"
 
-import graphene
-from data.base_objects import MeterReadingBase
+from data.base_objects import *
 
 
 class MeterReading(MeterReadingBase, graphene.ObjectType):
     """
-    Details when and what has been read from a sensor
+    Details when and what has been read from a meter
+    """
+    pass
+
+
+class MeterTariff(MeterTariffBase, graphene.ObjectType):
+    """
+    Details when and what tariff has been applied to a meter reading
     """
     pass

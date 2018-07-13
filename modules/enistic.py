@@ -74,7 +74,7 @@ class Module(AbstractModule):
                                 time=reading_time * 1000,
                                 source=self.module['name'],
                                 id=meter['id'],
-                                value=meter_reading,
+                                reading=meter_reading,
                                 unit='watts')
                             self.last_reading_time = reading_time
 

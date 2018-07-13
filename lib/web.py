@@ -23,8 +23,7 @@ import threading
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_graphql import GraphQLView
-from data.database.dataloaders import LatestReadingDataLoader
-from data.database.dataloaders import ReadingsBetweenDataLoader
+from data.database.dataloaders import *
 
 
 class WebServer(threading.Thread):
@@ -61,15 +60,18 @@ class WebServer(threading.Thread):
             func()
 
         app.add_url_rule('/graphql',
-                         view_func=GraphQLView.as_view('graphql',
-                                                       schema=self.schema,
-                                                       graphiql=True,
-                                                       context=
-                                                       dict(database=self.database,
-                                                            latestloader=LatestReadingDataLoader(self.database),
-                                                            betweenloader=ReadingsBetweenDataLoader(self.database)
-                                                            )
-                                                       )
+                         view_func=
+                         GraphQLView.as_view('graphql',
+                                             schema=self.schema,
+                                             graphiql=True,
+                                             context=
+                                             dict(database=self.database,
+                                                  meterreadingloader=ReadingDataLoader(self.database),
+                                                  meterreadingsbetweenloader=ReadingsBetweenDataLoader(self.database),
+                                                  metertariffloader=TariffDataLoader(self.database),
+                                                  metertariffbetweenloader=TariffBetweenDataLoader(self.database)
+                                                  )
+                                             )
                          )
 
-        app.run(port=self.config['webserver']['port'], threaded=True)
+        app.run(host='0.0.0.0', port=self.config['webserver']['port'], threaded=True)

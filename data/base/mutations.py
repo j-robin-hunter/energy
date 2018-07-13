@@ -20,7 +20,6 @@ __status__ = "Production"
 __version__ = "1.0.0"
 
 from .types import *
-import graphene
 
 
 class MeterReadingInput(MeterReadingBase, graphene.InputObjectType):
@@ -36,5 +35,19 @@ class CreateMeterReading(MeterReading, graphene.Mutation):
         return CreateMeterReading(**meter_reading)
 
 
+class MeterTariffInput(MeterTariffBase, graphene.InputObjectType):
+    pass
+
+
+class CreateMeterTariff(MeterTariff, graphene.Mutation):
+    class Arguments:
+        meter_tariff = MeterTariffInput()
+
+    def mutate(self, info, meter_tariff):
+        info.context['database'].write_meter_tariff(meter_tariff)
+        return CreateMeterTariff(**meter_tariff)
+
+
 class Mutations(graphene.ObjectType):
     create_meter_reading = CreateMeterReading.Field()
+    create_meter_tariff = CreateMeterTariff.Field()

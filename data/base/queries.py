@@ -20,16 +20,27 @@ __status__ = "Production"
 __version__ = "1.0.0"
 
 from .types import *
-import graphene
 
 
 def resolve_meter_reading(root, info, id):
-    dataloader = info.context['latestloader']
+    dataloader = info.context['meterreadingloader']
     return dataloader.load(id)
 
 
 def resolve_meter_readings_between(root, info, id, start, end):
-    dataloader = info.context['betweenloader']
+    dataloader = info.context['meterreadingsbetweenloader']
+    dataloader.start = start
+    dataloader.end = end
+    return dataloader.load(id)
+
+
+def resolve_meter_tariff(root, info, id):
+    dataloader = info.context['metertariffloader']
+    return dataloader.load(id)
+
+
+def resolve_meter_tariff_between(root, info, id, start, end):
+    dataloader = info.context['metertariffbetweenloader']
     dataloader.start = start
     dataloader.end = end
     return dataloader.load(id)
@@ -37,10 +48,18 @@ def resolve_meter_readings_between(root, info, id, start, end):
 
 class Query(graphene.ObjectType):
     meterReading = graphene.List(graphene.List(MeterReading),
-                                resolver=resolve_meter_reading,
-                                id=graphene.String())
+                                 resolver=resolve_meter_reading,
+                                 id=graphene.String())
     meterReadingsBetween = graphene.List(graphene.List(MeterReading),
-                                        resolver=resolve_meter_readings_between,
-                                        id=graphene.String(),
-                                        start=graphene.Float(),
-                                        end=graphene.Float())
+                                         resolver=resolve_meter_readings_between,
+                                         id=graphene.String(),
+                                         start=graphene.Float(),
+                                         end=graphene.Float())
+    meterTariff = graphene.List(MeterTariff,
+                                resolver=resolve_meter_tariff,
+                                id=graphene.String())
+    meterTariffBetween = graphene.List(graphene.List(MeterTariff),
+                                       resolver=resolve_meter_tariff_between,
+                                       id=graphene.String(),
+                                       start=graphene.Float(),
+                                       end=graphene.Float())
