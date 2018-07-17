@@ -59,7 +59,7 @@
             {
                 "type": "expenditure",
                 "name": "OVO Fixed",
-                "meter": { "source": "inverter one", "id": "Grid Power", "meter_values": "negative" },
+                "meter": { "source": "inverter one", "id": "Grid Power", "meter_values": "positive" },
                 "rate": [
                     { "start": "00:00:00", "amount": 0.0752, "tax": "5%", "unit": "kWh", "rateid": "night" },
                     { "start": "07:00:00", "amount": 0.157,  "tax": "5%", "unit": "kWh", "rateid": "day" }
@@ -69,7 +69,7 @@
             {
                 "type": "income",
                 "name": "Grid export",
-                "meter": { "source": "inverter one", "id": "Grid Power", "meter_values": "positive" },
+                "meter": { "source": "inverter one", "id": "Grid Power", "meter_values": "negative" },
                 "rate": [
                     { "start": "00:00:00", "amount": 0.0186, "tax": "0%", "unit": "kWh" }
                 ]

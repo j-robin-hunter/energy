@@ -142,22 +142,23 @@ class AbstractModule(ABC, threading.Thread):
                 name=self.lasttariff[kwargs['id']]['name'],
                 rateid=self.lasttariff[kwargs['id']]['rateid']
             )
-            result = self.schema.execute(
-                '''
-                mutation CreateMeterTariff($tariff: MeterTariffInput!) {
-                    createMeterTariff(meterTariff: $tariff) {
-                        time
+            if tariff['amount'] > 0:
+                result = self.schema.execute(
+                    '''
+                    mutation CreateMeterTariff($tariff: MeterTariffInput!) {
+                        createMeterTariff(meterTariff: $tariff) {
+                            time
+                        }
                     }
-                }
-                ''',
-                variable_values={
-                    "tariff": tariff
-                },
-                context_value={"database": self.database}
-            )
-            if result.errors:
-                logging.error(result.errors)
-                raise RuntimeError("Error in GraphQL mutation")
+                    ''',
+                    variable_values={
+                        "tariff": tariff
+                    },
+                    context_value={"database": self.database}
+                )
+                if result.errors:
+                    logging.error(result.errors)
+                    raise RuntimeError("Error in GraphQL mutation")
 
         for tariffs in [d for d in self.tariff
                         if d['meter']['id'] == kwargs['id'] and d['meter']['source'] == kwargs['source']]:
