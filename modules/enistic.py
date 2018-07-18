@@ -90,14 +90,14 @@ class Module(AbstractModule):
                     try:
                         if self.serial_number is None:
                             self.serial_number = re.search('Core:Serial=(.+?)\r', data.decode('utf-8')).group(1)
-                            logging.info(f'Serial number for module "{self.module["name"]}"'
-                                         f' is "{self.serial_number}"')
+                            logging.info('Serial number for module "{}"'
+                                         ' is "{}"'.format(self.module["name"], self.serial_number))
                     except AttributeError:
                         try:
                             if self.model_name is None:
                                 self.model_name = re.search('Status:Model=(.+?)\r', data.decode('utf-8')).group(1)
-                                logging.info(f'Model name for module "{self.module["name"]}"'
-                                             f' is "{self.model_name}"')
+                                logging.info('Model name for module "{}"'
+                                             ' is "{}"'.format(self.module["name"], self.model_name))
                         except AttributeError:
                             pass
         except Exception as e:

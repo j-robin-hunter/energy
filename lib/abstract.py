@@ -47,27 +47,27 @@ class AbstractDatabase(ABC):
 
     def write_meter_reading(self, meter_reading):
         logging.error(
-            f'Database implementation "{self.config["type"]}" '
-            f'unexpectedly called the default write_meter_reading() method '
-            f'- this should be overridden')
+            'Database implementation "{}" '
+            'unexpectedly called the default write_meter_reading() method '
+            '- this should be overridden'),format(self.config["type"])
         raise NotImplementedError(
             'Unexpected invocation of abstract class method write_meter_reading '
             '- this should be overridden in concrete class')
 
     def all_latest_meter_readings(self):
         logging.error(
-            f'Database implementation "{self.config["type"]}" '
-            f'unexpectedly called the default all_latest_measurements() method '
-            f'- this should be overridden')
+            'Database implementation "{}" '
+            'unexpectedly called the default all_latest_measurements() method '
+            '- this should be overridden').format(self.config["type"])
         raise NotImplementedError(
             'Unexpected invocation of abstract class method all_latest_measurements '
             '- this should be overridden in concrete class')
 
     def all_meter_readings_between(self, start, end=None):
         logging.error(
-            f'Database implementation "{self.config["type"]}" '
-            f'unexpectedly called the default all_measurements_between() method '
-            f'- this should be overridden')
+            'Database implementation "{}" '
+            'unexpectedly called the default all_measurements_between() method '
+            '- this should be overridden').format(self.config["type"])
         raise NotImplementedError(
             'Unexpected invocation of abstract class method all_measurements_between '
             '- this should be overridden in concrete class')
@@ -97,14 +97,14 @@ class AbstractModule(ABC, threading.Thread):
             while not self.terminate.is_set():
                 self.process_outputs()
 
-            logging.info(f'Plugin "{self.getName()}" is terminating following signal')
+            logging.info('Plugin "{}" is terminating following signal').format(self.getName())
         except Exception as e:
-            logging.error(f'Exception caught {type(e)}: {str(e)}')
+            logging.error('Exception caught {}: {}'.format(type(e), str(e)))
 
     def process_outputs(self):
         logging.error(
-            f'Module "{self.getName()}" unexpectedly called the default process_outputs() method '
-            f'- this should be overridden')
+            'Module "{}" unexpectedly called the default process_outputs() method '
+            '- this should be overridden').format(self.getName())
         raise NotImplementedError(
             'Unexpected invocation of abstract class method process_outputs '
             '- this should be overridden in concrete class')
@@ -227,8 +227,8 @@ class AbstractDataLoader(ABC, DataLoader):
 
     def batch_load_fn(self, keys):
         logging.error(
-            f'Dataloader "{self.getName()}" unexpectedly called the dataload_fn() method '
-            f'- this should be overridden')
+            'Dataloader "{}" unexpectedly called the dataload_fn() method '
+            '- this should be overridden').format(self.getName())
         raise NotImplementedError(
             'Unexpected invocation of abstract class method dataload_fn '
             '- this should be overridden in concrete class')

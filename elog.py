@@ -31,7 +31,8 @@ import time
 import threading
 import data.graphql
 import locale
-
+import sys
+import traceback
 
 logging.basicConfig(
     level=logging.INFO,
@@ -77,7 +78,7 @@ def configure_logging(config):
     # It will be automatically re-added if no handlers are present
     log_file = config.get('log_file', None)
     if log_file is not None:
-        logging.debug(f'Writing log output to file: "{log_file}"')
+        logging.debug('Writing log output to file: "{}"'.format(log_file))
     if log_file is not None:
         lsstout = logger.handlers[0]
         lhhdlr = RotatingFileHandler(log_file, maxBytes=1000000000, backupCount=5)
@@ -92,7 +93,7 @@ def start_webserver(config, schema, database):
 
 
 def connect_database(config):
-    database = importlib.import_module(f'.{config["type"]}', package=DATABASE_PACKAGE)
+    database = importlib.import_module('.' + config["type"], package=DATABASE_PACKAGE)
     return database.Database(config)
 
 
@@ -118,13 +119,14 @@ def main():
 
         logging.info('Reading modules')
         for module in config['module']:
-            logging.debug(f'-- Module "{module["name"]}"')
+            logging.debug('-- Module "{}"'.format(module["name"]))
             if {True for mod in modules if mod == module['name']} != set():
-                logging.error(f'Duplicate module "{module["name"]}" defined in configuration file')
-                raise RuntimeError(f'Duplicate "module" definition for "{module["name"]}" found in configuration file')
+                logging.error('Duplicate module "{}" defined in configuration file'.format(module["name"]))
+                raise RuntimeError(
+                    'Duplicate "module" definition for "{}" found in configuration file'.format(module["name"]))
             modules.add(module['name'])
-            logging.info(f'---- Importing and instantiating module type "{module["type"]}"')
-            imported = importlib.import_module(f'.{module["type"]}', package=MODULES_PACKAGE)
+            logging.info('---- Importing and instantiating module type "{}"'.format(module["type"]))
+            imported = importlib.import_module('modules.{}'.format(module["type"]))
             instance = imported.Module(module,
                                        schema,
                                        database,
@@ -149,15 +151,20 @@ def main():
                 raise RuntimeError('Unexpected module termination')
 
     except KeyError as e:
-        logging.critical(f'Missing key {str(e)} from configuration file')
+        logging.critical('Missing key {} from configuration file'.format(str(e)))
     except Exception as e:
-        logging.critical(f'Exception caught {type(e)}: {e}')
+        print("Exception in user code:")
+        print("-" * 60)
+        traceback.print_exc(file=sys.stdout)
+        print("-" * 60)
+        logging.critical('Exception caught {}: {}'.format(type(e), e))
+
     finally:
         # Terminate all running plugins
         threads = [thread for thread in threading.enumerate()
                    if thread.isAlive() and thread.getName() in modules]
         for thread in threads:
-            logging.info(f'Terminating {thread.getName()}')
+            logging.info('Terminating {}'.format(thread.getName()))
             thread.terminate.set()
             thread.join()
 

@@ -142,7 +142,7 @@ class Module(AbstractModule):
             if self.sock is not None:
                 self.sock.close()
         except Exception as e:
-            logging.error(f'Encountered error while disposing {self.getName()}: {str(e)}')
+            logging.error('Encountered error while disposing {}: {}'.format(self.getName(), str(e)))
 
     def process_outputs(self):
         if (millis() - self.statetime) > self.OFFLINE_TIMEOUT:
@@ -163,7 +163,7 @@ class Module(AbstractModule):
             self._send_udp(control_code, function_code)
             self._receive(function_code)
         except Exception as e:
-            logging.error(f'Exception caught {type(e)}: {str(e)}')
+            logging.error('Exception caught {}: {}'.format(type(e), str(e)))
             raise
 
     def _receive(self, function_code):
@@ -204,7 +204,7 @@ class Module(AbstractModule):
                         msg = 'run'
                     else:
                         msg = 'unexpected'
-                    logging.error(f'Invalid inverter response from {msg} query')
+                    logging.error('Invalid inverter response from {} query'.format(msg))
         except socket.timeout:
             pass
         except Exception:
@@ -236,7 +236,7 @@ class Module(AbstractModule):
 
                 # LoadPower can generate spurious numbers so do not send these
                 if readings.get('LoadPower', 250000) >= 250000:
-                    logging.warning(f'Spurious LoadPower value: {readings.get("LoadPower", 250000)}')
+                    logging.warning('Spurious LoadPower value: {}'.format(readings.get("LoadPower", 250000)))
                 else:
                     self.meter_readings(readings)
 
@@ -290,7 +290,8 @@ class Module(AbstractModule):
                         unit='percent')
 
         except KeyError as e:
-            logging.critical(f'Missing or mistyped key {str(e)} from module "{self.module["name"]}" configuration')
+            logging.critical('Missing or mistyped key {} from module "{}" configuration'
+                             .format(str(e), self.module["name"]))
             raise
 
     def _id(self, response):
@@ -307,8 +308,10 @@ class Module(AbstractModule):
                     nominalVpv=response[47:51].decode('utf-8'),
                     internalVersion=response[51:63].decode('utf-8'),
                     safetyCountryCode=response[63])
-                logging.info(f'Serial number for module "{self.module["name"]}" is "{self.idinfo["serialNumber"]}"')
-                logging.info(f'Model name for module "{self.module["name"]}" is "{self.idinfo["modelName"]}"')
+                logging.info('Serial number for module "{}" is "{}"'
+                             .format(self.module["name"], self.idinfo["serialNumber"]))
+                logging.info('Model name for module "{}" is "{}"'
+                             .format(self.module["name"], self.idinfo["modelName"]))
 
         except Exception:
             raise  # Raise all other errors
@@ -337,7 +340,8 @@ class Module(AbstractModule):
                 break
             except OSError as e:
                 retry += 1
-                logging.info(f'Exception {type(e)}: {str(e)} sending data to the inverter - attempt {retry}')
+                logging.info('Exception {}: {} sending data to the inverter - attempt {}'
+                             .format(type(e), str(e), retry))
                 if retry > self.SOCKET_RETRIES:
                     raise RuntimeError('Unable to send data to the inverter')
                 sleep(self.SOCKET_RETRIES_DELAY)

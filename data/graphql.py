@@ -38,12 +38,12 @@ def get_queries():
     queries_base_classes = []
     for directory in subdirectories:
         try:
-            module = importlib.import_module(f'{current_module}.{directory}.queries')
+            module = importlib.import_module('{}.{}.queries'.format(current_module, directory))
             if module:
                 classes = [x for x in inspect.getmembers(module, inspect.isclass)]
                 queries = [x[1] for x in classes if 'Query' in x[0]]
                 queries_base_classes += queries
-        except ModuleNotFoundError:
+        except ImportError:
             pass
 
     queries_base_classes = set(queries_base_classes[::-1])
@@ -58,12 +58,12 @@ def get_mutations():
     mutations_base_classes = []
     for directory in subdirectories:
         try:
-            module = importlib.import_module(f'{current_module}.{directory}.mutations')
+            module = importlib.import_module('{}.{}.mutations'.format(current_module, directory))
             if module:
                 classes = [x for x in inspect.getmembers(module, inspect.isclass)]
                 mutations = [x[1] for x in classes if 'Mutation' in x[0]]
                 mutations_base_classes += mutations
-        except ModuleNotFoundError:
+        except ImportError:
             pass
 
     mutations_base_classes = set(mutations_base_classes[::-1])
@@ -78,12 +78,12 @@ def get_types():
     types_base_classes = []
     for directory in subdirectories:
         try:
-            module = importlib.import_module(f'{current_module}.{directory}.types')
+            module = importlib.import_module('{}.{}.types'.format(current_module, directory))
             if module:
                 classes = [x for x in inspect.getmembers(module, inspect.isclass)]
                 types = [x[1] for x in classes if str(x[1]) == x[0]]
                 types_base_classes += types
-        except ModuleNotFoundError:
+        except ImportError:
             pass
 
     types_base_classes = set(types_base_classes[::-1])
