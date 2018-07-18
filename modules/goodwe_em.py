@@ -24,6 +24,7 @@ import socket
 import ipaddress
 import logging
 import time
+from collections import OrderedDict
 
 
 def calculate_crc(buffer):
@@ -70,48 +71,48 @@ class Module(AbstractModule):
     # GoodWe single phase run response packet data items decode dictionary. It contains the
     # name of the packet, it's size and a 'divisor' needed to return the data to the precision
     # of the units specified in the GoodWe protocol and scale/sign required for display
-    single_phase = {
-        'Vpv1': [SHORT, 10, 1],
-        'Vpv2': [SHORT, 10, 1],
-        'Ipv1': [SHORT, 10, 1],
-        'Ipv2': [SHORT, 10, 1],
-        'Vac1': [SHORT, 10, 1],
-        'Iac1': [SHORT, 10, 1],
-        'Fac1': [SHORT, 100, 1],
-        'PGrid': [SHORT, 1, -1],
-        'WorkMode': [SHORT, 1, 1],
-        'Temperature': [SHORT, 10, 1],
-        'ErrorMessage': [LONG, 1, 1],
-        'ETotal': [LONG, 10, 1],
-        'HTotal': [LONG, 1, 1],
-        'SoftVersion': [SHORT, 1, 1],
-        'WarningCode': [SHORT, 1, 1],
-        'PV2FaultValue': [SHORT, 10, 1],
-        'FunctionsBitValue': [SHORT, 1, 1],
-        'BUSVoltage': [SHORT, 10, 1],
-        'GFCICheckValue_SafetyCountry': [SHORT, 1, 1],
-        'EDay': [SHORT, 10, 1, 1],
-        'Vbattery1': [SHORT, 10, 1, 1],
-        'Errorcode': [SHORT, 1, 1],
-        'SOC1': [SHORT, 1, 1],
-        'Ibattery1': [SHORT, 10, 1],
-        'PVTotal': [SHORT, 10, 1],
-        'LoadPower': [LONG, 1, 1],
-        'E_Load_Day': [SHORT, 10, 1],
-        'E_Total_Load': [LONG, 10, 1],
-        'InverterPower': [SHORT, 1, 1],
-        'Vload': [SHORT, 10, 1],
-        'Iload': [SHORT, 10, 1],
-        'OperationMode': [SHORT, 1, 1],
-        'BMS_Alarm': [SHORT, 1, 1],
-        'BMS_Warning': [SHORT, 1, 1],
-        'SOH1': [SHORT, 1, 1],
-        'BMS_Temperature': [SHORT, 10, 1],
-        'BMS_Charge_I_Max': [SHORT, 1, 1],
-        'BMS_Discharge_I_Max': [SHORT, 1, 1],
-        'Battery_Work_Mode': [SHORT, 1, 1],
-        'Pmeter': [SHORT, 1, 1]
-    }
+    single_phase = OrderedDict([
+        ('Vpv1', [SHORT, 10, 1]),
+        ('Vpv2', [SHORT, 10, 1]),
+        ('Ipv1', [SHORT, 10, 1]),
+        ('Ipv2', [SHORT, 10, 1]),
+        ('Vac1', [SHORT, 10, 1]),
+        ('Iac1', [SHORT, 10, 1]),
+        ('Fac1', [SHORT, 100, 1]),
+        ('PGrid', [SHORT, 1, -1]),
+        ('WorkMode', [SHORT, 1, 1]),
+        ('Temperature', [SHORT, 10, 1]),
+        ('ErrorMessage', [LONG, 1, 1]),
+        ('ETotal', [LONG, 10, 1]),
+        ('HTotal', [LONG, 1, 1]),
+        ('SoftVersion', [SHORT, 1, 1]),
+        ('WarningCode', [SHORT, 1, 1]),
+        ('PV2FaultValue', [SHORT, 10, 1]),
+        ('FunctionsBitValue', [SHORT, 1, 1]),
+        ('BUSVoltage', [SHORT, 10, 1]),
+        ('GFCICheckValue_SafetyCountry', [SHORT, 1, 1]),
+        ('EDay', [SHORT, 10, 1, 1]),
+        ('Vbattery1', [SHORT, 10, 1, 1]),
+        ('Errorcode', [SHORT, 1, 1]),
+        ('SOC1', [SHORT, 1, 1]),
+        ('Ibattery1', [SHORT, 10, 1]),
+        ('PVTotal', [SHORT, 10, 1]),
+        ('LoadPower', [LONG, 1, 1]),
+        ('E_Load_Day', [SHORT, 10, 1]),
+        ('E_Total_Load', [LONG, 10, 1]),
+        ('InverterPower', [SHORT, 1, 1]),
+        ('Vload', [SHORT, 10, 1]),
+        ('Iload', [SHORT, 10, 1]),
+        ('OperationMode', [SHORT, 1, 1]),
+        ('BMS_Alarm', [SHORT, 1, 1]),
+        ('BMS_Warning', [SHORT, 1, 1]),
+        ('SOH1', [SHORT, 1, 1]),
+        ('BMS_Temperature', [SHORT, 10, 1]),
+        ('BMS_Charge_I_Max', [SHORT, 1, 1]),
+        ('BMS_Discharge_I_Max', [SHORT, 1, 1]),
+        ('Battery_Work_Mode', [SHORT, 1, 1]),
+        ('Pmeter', [SHORT, 1, 1])
+    ])
 
     def __init__(self, module, schema, database, tariff):
         super().__init__(module, schema, database, tariff)

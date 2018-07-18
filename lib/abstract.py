@@ -24,7 +24,6 @@ import threading
 import logging
 import time
 from promise.dataloader import DataLoader
-import locale
 
 
 def millis():
@@ -49,7 +48,7 @@ class AbstractDatabase(ABC):
         logging.error(
             'Database implementation "{}" '
             'unexpectedly called the default write_meter_reading() method '
-            '- this should be overridden'),format(self.config["type"])
+            '- this should be overridden'.format(self.config["type"]))
         raise NotImplementedError(
             'Unexpected invocation of abstract class method write_meter_reading '
             '- this should be overridden in concrete class')
@@ -58,7 +57,7 @@ class AbstractDatabase(ABC):
         logging.error(
             'Database implementation "{}" '
             'unexpectedly called the default all_latest_measurements() method '
-            '- this should be overridden').format(self.config["type"])
+            '- this should be overridden'.format(self.config["type"]))
         raise NotImplementedError(
             'Unexpected invocation of abstract class method all_latest_measurements '
             '- this should be overridden in concrete class')
@@ -67,7 +66,7 @@ class AbstractDatabase(ABC):
         logging.error(
             'Database implementation "{}" '
             'unexpectedly called the default all_measurements_between() method '
-            '- this should be overridden').format(self.config["type"])
+            '- this should be overridden'.format(self.config["type"]))
         raise NotImplementedError(
             'Unexpected invocation of abstract class method all_measurements_between '
             '- this should be overridden in concrete class')
@@ -97,14 +96,14 @@ class AbstractModule(ABC, threading.Thread):
             while not self.terminate.is_set():
                 self.process_outputs()
 
-            logging.info('Plugin "{}" is terminating following signal').format(self.getName())
+            logging.info('Plugin "{}" is terminating following signal'.format(self.getName()))
         except Exception as e:
             logging.error('Exception caught {}: {}'.format(type(e), str(e)))
 
     def process_outputs(self):
         logging.error(
             'Module "{}" unexpectedly called the default process_outputs() method '
-            '- this should be overridden').format(self.getName())
+            '- this should be overridden'.format(self.getName()))
         raise NotImplementedError(
             'Unexpected invocation of abstract class method process_outputs '
             '- this should be overridden in concrete class')
@@ -228,7 +227,7 @@ class AbstractDataLoader(ABC, DataLoader):
     def batch_load_fn(self, keys):
         logging.error(
             'Dataloader "{}" unexpectedly called the dataload_fn() method '
-            '- this should be overridden').format(self.getName())
+            '- this should be overridden'.format(self.getName()))
         raise NotImplementedError(
             'Unexpected invocation of abstract class method dataload_fn '
             '- this should be overridden in concrete class')
