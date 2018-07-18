@@ -31,8 +31,6 @@ import time
 import threading
 import data.graphql
 import locale
-import sys
-import traceback
 
 logging.basicConfig(
     level=logging.INFO,
@@ -153,10 +151,6 @@ def main():
     except KeyError as e:
         logging.critical('Missing key {} from configuration file'.format(str(e)))
     except Exception as e:
-        print("Exception in user code:")
-        print("-" * 60)
-        traceback.print_exc(file=sys.stdout)
-        print("-" * 60)
         logging.critical('Exception caught {}: {}'.format(type(e), e))
 
     finally:
