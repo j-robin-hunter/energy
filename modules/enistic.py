@@ -60,7 +60,7 @@ class Module(AbstractModule):
             if index > 0 and self.enistic_time_offset is not None:
                 logging.debug('Enistic meter reading "%s"', data)
                 reading_time = \
-                    self.enistic_time_to_now(re.search('\d*\d*\d*\d*\d*\d*', data.decode('utf-8')).group(0))\
+                    self.enistic_time_to_now(re.search('\d*\/\d*\/\d*\/\d*\/\d*\/\d*', data.decode('utf-8')).group(0))\
                     + self.enistic_time_offset
                 tokens = data[index:len(data)].decode('utf-8').split(',')
                 if len(tokens) >= 6:
