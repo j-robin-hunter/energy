@@ -25,8 +25,6 @@ from flask_cors import CORS
 from flask_graphql import GraphQLView
 from data.database.dataloaders import *
 
-app = Flask(__name__)
-
 
 class WebServer(threading.Thread):
     def __init__(self, config, schema, database):
@@ -36,6 +34,7 @@ class WebServer(threading.Thread):
         self.database = database
 
     def run(self):
+        app = Flask(__name__)
         CORS(app, resources={
             r'/graphql/*': {'origins': '*'},
             r'/config/*': {'origins': '*'}
@@ -75,4 +74,5 @@ class WebServer(threading.Thread):
                                              )
                          )
 
-        app.run(host='0.0.0.0', port=self.config['webserver']['port'], threaded=True)
+        if __name__ == "__main__":
+            app.run(host='0.0.0.0', port=self.config['webserver']['port'], threaded=True)
