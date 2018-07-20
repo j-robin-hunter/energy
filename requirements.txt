@@ -1,0 +1,6 @@
+elog
+Flask==1.0.2
+Flask-Cors==3.0.6
+Flask-GraphQL==1.4.1
+graphene==2.1.2
+influxdb==5.2.0
