@@ -43,7 +43,7 @@ class Database(AbstractDatabase):
                 retries=self.CONNECTION_RETIES)
 
             if len(list(filter(lambda database: database['name'] == self.config['database'],
-                       self.connection.get_list_database()))) == 0:
+                               self.connection.get_list_database()))) == 0:
                 self.init_database(self.config['database'])
 
             logging.debug('-- Database connected. '

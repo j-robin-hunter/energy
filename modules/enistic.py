@@ -60,14 +60,14 @@ class Module(AbstractModule):
             if index > 0 and self.enistic_time_offset is not None:
                 logging.debug('Enistic meter reading "%s"', data)
                 reading_time = \
-                    self.enistic_time_to_now(re.search('\d*\/\d*\/\d*\/\d*\/\d*\/\d*', data.decode('utf-8')).group(0))\
+                    self.enistic_time_to_now(re.search('\d*\d*\d*\d*\d*\d*', data.decode('utf-8')).group(0))\
                     + self.enistic_time_offset
                 tokens = data[index:len(data)].decode('utf-8').split(',')
                 if len(tokens) >= 6:
                     try:
                         meter_reading = get_number(tokens[3]) / 1000
                         meter = list(
-                                filter(lambda meter: meter['channel'] == get_number(tokens[5]), self.module['meter'])
+                                filter(lambda m: m['channel'] == get_number(tokens[5]), self.module['meter'])
                             )[0]
                         if reading_time != self.last_reading_time:
                             self.write_meter_reading(
@@ -104,7 +104,8 @@ class Module(AbstractModule):
             logging.error(str(e))
             raise RuntimeError(str(e))
 
-    def enistic_time_to_now(self, enistic_time):
+    @staticmethod
+    def enistic_time_to_now(enistic_time):
         # The clock on the enistic meter is not capable of being set and it does not
         # keep very good time. It does however report it's time (reset to 1st Jan 2000 on power cycle)
         # every minute or so and this can be used to adjust each data reading to a close approximation

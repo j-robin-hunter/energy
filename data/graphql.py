@@ -26,7 +26,7 @@ import inspect
 import logging
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
-current_module = current_directory.split(os.sep)[-1]
+current_module = current_directory.split(os.path.sep)[-1]
 subdirectories = [d
                   for d in os.listdir(current_directory)
                   if os.path.isdir(os.path.join(current_directory, d)) and

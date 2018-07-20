@@ -176,6 +176,7 @@ class AbstractModule(ABC, threading.Thread):
     def process_tariff(self, tariffs, **kwargs):
         try:
             rate = 0
+            i = 0
             for i in range(len(tariffs['rate']) - 1, -1, -1):
                 tax = 1 + float(tariffs['rate'][i]['tax'].strip('%')) / 100.0
                 rate = tariffs['rate'][i]['amount'] / 3600 * tax
