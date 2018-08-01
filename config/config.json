@@ -1,28 +1,55 @@
 {
-    "configuration": {
-        "latitude": 52.202857,
-        "longitude": 0.399202,
+    "site": {
+        "latitude": 52.202861,
+        "longitude":  0.399213,
         "locale": "en-GB",
-        "item": [
+        "power": [
             {
                 "type": "grid",
-                "total_power": { "source": "inverter one", "id": "Grid Power" }
+                "meter": { "module": "inverter one", "id": "Grid Power" },
+                "tariff": [
+                    {
+                        "type": "expenditure",
+                        "name": "OVO Fixed",
+                        "rate": [
+                            { "start": "00:00:00", "amount": 0.0752, "tax": "5%", "unit": "kWh", "rateid": "night" },
+                            { "start": "07:00:00", "amount": 0.157,  "tax": "5%", "unit": "kWh", "rateid": "day" }
+                        ],
+                        "standing_charge": { "day": 0.2877, "tax": "5%" }
+                    },
+                    {
+                        "type": "income",
+                        "name": "Grid export",
+                        "rate": [
+                            { "start": "00:00:00", "amount": 0.0186, "tax": "0%", "unit": "kWh" }
+                        ]
+                    }
+                ]
             },
             {
                 "type": "solar",
-                "total_power": { "source": "inverter one", "id": "Solar Power" },
+                "meter": { "module": "inverter one", "id": "Solar Power" },
                 "detail": {
                     "make": "Solarcentury",
                     "model": "C21e",
                     "rating": 2200,
                     "tilt": 45,
                     "azimuth": 180
-                }
+                },
+                "tariff": [
+                    {
+                        "type": "income",
+                        "name": "FIT payment",
+                        "rate": [
+                            { "start": "00:00:00", "amount": 0.5275, "tax": "0%", "unit": "kWh" }
+                        ]
+                    }
+                ]
             },
             {
                 "type": "battery",
-                "total_power": { "source": "inverter one", "id": "Battery Power" },
-                "state_of_charge": { "source": "inverter one", "id": "Battery State of Charge" },
+                "meter": { "module": "inverter one", "id": "Battery Power" },
+                "state_of_charge": { "module": "inverter one", "id": "Battery State of Charge" },
                 "detail": {
                     "make": "LG",
                     "model": "LG RESU 6.5",
@@ -36,56 +63,26 @@
             },
             {
                 "type": "load",
-                "total_load": [
-                    { "source": "inverter one", "id": "Total Load" }
-                ],
-                "metered_load": [
-                    { "source": "enistic", "id": "Washing Machines" },
-                    { "source": "enistic", "id": "Water Heater" },
-                    { "source": "enistic", "id": "Bathroom Heaters" },
-                    { "source": "enistic", "id": "Kitchen Island" },
-                    { "source": "enistic", "id": "Ovens" },
-                    { "source": "enistic", "id": "Upstairs Power" },
-                    { "source": "enistic", "id": "Kitchen Power" },
-                    { "source": "enistic", "id": "Over Garage Power" },
-                    { "source": "enistic", "id": "Downstairs Power" },
-                    { "source": "enistic", "id": "Living Room & DMX" },
-                    { "source": "enistic", "id": "Lighting" },
-                    { "source": "enistic",  "id": "Evolution" }
-                ]
-            }
-        ],
-        "tariff": [
-            {
-                "type": "expenditure",
-                "name": "OVO Fixed",
-                "meter": { "source": "inverter one", "id": "Grid Power", "meter_values": "positive" },
-                "rate": [
-                    { "start": "00:00:00", "amount": 0.0752, "tax": "5%", "unit": "kWh", "rateid": "night" },
-                    { "start": "07:00:00", "amount": 0.157,  "tax": "5%", "unit": "kWh", "rateid": "day" }
-                ],
-                "standing_charge": { "day": 0.2877, "tax": "5%" }
-            },
-            {
-                "type": "income",
-                "name": "Grid export",
-                "meter": { "source": "inverter one", "id": "Grid Power", "meter_values": "negative" },
-                "rate": [
-                    { "start": "00:00:00", "amount": 0.0186, "tax": "0%", "unit": "kWh" }
-                ]
-            },
-            {
-                "type": "income",
-                "name": "FIT payment",
-                "meter": { "source": "inverter one", "id": "Solar Power", "meter_values": "positive" },
-                "rate": [
-                    { "start": "00:00:00", "amount": 0.5275, "tax": "0%", "unit": "kWh" }
-                ]
+                "meter": {
+                    "module": "inverter one",
+                    "id": "Total Load",
+                    "circuit": [
+                        { "module": "enistic", "id": "Washing Machines" },
+                        { "module": "enistic", "id": "Water Heater" },
+                        { "module": "enistic", "id": "Bathroom Heaters" },
+                        { "module": "enistic", "id": "Kitchen Island" },
+                        { "module": "enistic", "id": "Ovens" },
+                        { "module": "enistic", "id": "Upstairs Power" },
+                        { "module": "enistic", "id": "Kitchen Power" },
+                        { "module": "enistic", "id": "Over Garage Power" },
+                        { "module": "enistic", "id": "Downstairs Power" },
+                        { "module": "enistic", "id": "Living Room & DMX" },
+                        { "module": "enistic", "id": "Lighting" },
+                        { "module": "enistic",  "id": "Evolution" }
+                    ]
+                }
             }
         ]
-    },
-    "webserver": {
-        "port": 4040
     },
     "database" : {
         "name": "influx",

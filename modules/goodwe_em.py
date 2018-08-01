@@ -114,8 +114,8 @@ class Module(AbstractModule):
         ('Pmeter', [SHORT, 1, 1])
     ])
 
-    def __init__(self, module, schema, database, tariff):
-        super().__init__(module, schema, database, tariff)
+    def __init__(self, module, queue, tariff):
+        super().__init__(module, queue, tariff)
         self.state = self.OFFLINE
         self.statetime = millis()
 
@@ -250,42 +250,42 @@ class Module(AbstractModule):
                 if meter['reading'] == 'pv1':
                     self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
-                        source=self.module['name'],
+                        module=self.module['name'],
                         id=meter['id'],
                         reading=readings['Vpv1'] * readings['Ipv1'],
                         unit='watts')
                 elif meter['reading'] == 'pv2':
                     self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
-                        source=self.module['name'],
+                        module=self.module['name'],
                         id=meter['id'],
                         reading=readings['Vpv2'] * readings['Ipv2'],
                         unit='watts')
                 elif meter['reading'] == 'battery1':
                     self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
-                        source=self.module['name'],
+                        module=self.module['name'],
                         id=meter['id'],
                         reading=readings['Vbattery1'] * readings['Ibattery1'],
                         unit='watts')
                 elif meter['reading'] == 'grid':
                     self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
-                        source=self.module['name'],
+                        module=self.module['name'],
                         id=meter['id'],
                         reading=readings['PGrid'],
                         unit='watts')
                 elif meter['reading'] == 'load':
                     self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
-                        source=self.module['name'],
+                        module=self.module['name'],
                         id=meter['id'],
                         reading=readings['LoadPower'],
                         unit='watts')
                 elif meter['reading'] == 'soc1':
                     self.write_meter_reading(
                         time=int(round(time.time() * 1000)),
-                        source=self.module['name'],
+                        module=self.module['name'],
                         id=meter['id'],
                         reading=readings['SOC1'] * (readings['SOH1'] / 100),
                         unit='percent')

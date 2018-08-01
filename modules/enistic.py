@@ -32,8 +32,8 @@ def get_number(x):
 
 
 class Module(AbstractModule):
-    def __init__(self, module, schema, database, tariff):
-        super().__init__(module, schema, database, tariff)
+    def __init__(self, module, queue, tariff):
+        super().__init__(module, queue, tariff)
         try:
             self.model_name = None
             self.serial_number = None
@@ -72,7 +72,7 @@ class Module(AbstractModule):
                         if reading_time != self.last_reading_time:
                             self.write_meter_reading(
                                 time=reading_time * 1000,
-                                source=self.module['name'],
+                                module=self.module['name'],
                                 id=meter['id'],
                                 reading=meter_reading,
                                 unit='watts')

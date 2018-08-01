@@ -33,12 +33,12 @@ class Database(AbstractDatabase):
     CONNECTION_RETIES = 5
     RETRY_TIMEOUT = 5
 
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, config, queue):
+        super().__init__(config, queue)
         try:
             self.connection = influxdb.InfluxDBClient(
-                host=self.config['host'],
-                port=self.config['port'],
+                host=self.config.get('host', '127.0.0.1'),
+                port=self.config.get('port', 8086),
                 timeout=self.CONNECTION_TIMEOUT,
                 retries=self.CONNECTION_RETIES)
 
@@ -154,15 +154,19 @@ class Database(AbstractDatabase):
 
     def all_meter_readings_between(self, start, end=None):
         try:
+            dataset = 'one_year'
             endclause = ''
             if end is not None and end > start:
                 endclause = 'AND time <= {}ms'.format(int(end))
+                # Use five year sample if start to end is more than 1 week
+                if end - start > 7 * 24 * 60 * 60 * 1000:
+                    dataset = 'five_year'
 
             query = 'SELECT * ' \
-                    'FROM one_year.downsampled_reading ' \
-                    'WHERE time >= {}ms {}' \
+                    'FROM {}.downsampled_reading ' \
+                    'WHERE time >= {}ms {} ' \
                     'GROUP BY id ' \
-                    'ORDER BY ASC'.format(int(start), endclause)
+                    'ORDER BY ASC'.format(dataset, int(start), endclause)
             return self.connection.query(query, database=self.config['database'], epoch='ms')
         except Exception as e:
             logging.error('Database query error: {}'.format(str(e)))
@@ -248,15 +252,19 @@ class Database(AbstractDatabase):
 
     def all_meter_tariff_between(self, start, end=None):
         try:
+            dataset = 'one_year'
             endclause = ''
             if end is not None and end > start:
                 endclause = 'AND time <= {}ms'.format(int(end))
+                # Use five year sample if start to end is more than 1 week
+                if end - start > 7 * 24 * 60 * 60 * 1000:
+                    dataset = 'five_year'
 
             query = 'SELECT * ' \
-                    'FROM one_year.downsampled_tariff ' \
+                    'FROM {}.downsampled_tariff ' \
                     'WHERE time >= {}ms {} ' \
                     'GROUP BY * ' \
-                    'ORDER BY ASC'.format(int(start), endclause)
+                    'ORDER BY ASC'.format(dataset, int(start), endclause)
             return self.connection.query(query, database=self.config['database'], epoch='ms')
         except Exception as e:
             logging.error('Database query error: {}'.format(str(e)))

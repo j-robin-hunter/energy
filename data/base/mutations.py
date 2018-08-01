@@ -20,6 +20,7 @@ __status__ = "Production"
 __version__ = "1.0.0"
 
 from .types import *
+import data.database.globals as datawriter
 
 
 class MeterReadingInput(MeterReadingBase, graphene.InputObjectType):
@@ -31,7 +32,8 @@ class CreateMeterReading(MeterReading, graphene.Mutation):
         meter_reading = MeterReadingInput()
 
     def mutate(self, info, meter_reading):
-        info.context['database'].write_meter_reading(meter_reading)
+        for database in datawriter.databases:
+            database.write_meter_reading(meter_reading)
         return CreateMeterReading(**meter_reading)
 
 
@@ -44,7 +46,8 @@ class CreateMeterTariff(MeterTariff, graphene.Mutation):
         meter_tariff = MeterTariffInput()
 
     def mutate(self, info, meter_tariff):
-        info.context['database'].write_meter_tariff(meter_tariff)
+        for database in datawriter.databases:
+            database.write_meter_tariff(meter_tariff)
         return CreateMeterTariff(**meter_tariff)
 
 

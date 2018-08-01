@@ -27,16 +27,17 @@ from data.base.types import *
 def get_meter_reading(result_set, key):
     all_meter_readings = []
     try:
-
+        u_keys = list(set(key))
         for item in result_set.items():
-            if key == '*' or key == item[0][1]['id']:
-                meter_readings = []
-                all_meter_readings.append(meter_readings)
-                points = list(item[1])
-                for point in points:
-                    point['id'] = item[0][1]['id']
-                    meter_reading = MeterReading(**point)
-                    meter_readings.append(meter_reading)
+            for u_key in u_keys:
+                if u_key == '*' or u_key == item[0][1]['id']:
+                    meter_readings = []
+                    all_meter_readings.append(meter_readings)
+                    points = list(item[1])
+                    for point in points:
+                        point['id'] = item[0][1]['id']
+                        meter_reading = MeterReading(**point)
+                        meter_readings.append(meter_reading)
 
     except IndexError:
         pass
@@ -103,17 +104,20 @@ class TariffDataLoader(AbstractDataLoader):
     def get_meter_tariff(self, result_set, key):
         all_meter_tariffs = []
         try:
+            u_keys = list(set(key))
             for item in result_set.items():
-                if key == "*" or key == item[0][1]['id']:
-                    points = list(item[1])
-                    for point in points:
-                        point['id'] = item[0][1]['id']
-                        point['tariff'] = item[0][1]['tariff']
-                        point['tax'] = item[0][1]['tax']
-                        point['type'] = item[0][1]['type']
-                        point['name'] = item[0][1]['name']
-                        point['rateid'] = item[0][1].get('rateid', '')
-                        all_meter_tariffs.append(MeterTariff(**point))
+                for u_key in u_keys:
+                    if u_key == "*" or u_key == item[0][1]['id']:
+                        points = list(item[1])
+                        for point in points:
+                            point['id'] = item[0][1]['id']
+                            point['tariff'] = item[0][1]['tariff']
+                            point['tax'] = item[0][1]['tax']
+                            point['type'] = item[0][1]['type']
+                            point['name'] = item[0][1]['name']
+                            point['rateid'] = item[0][1].get('rateid', '')
+                            point['source'] = item[0][1]['source']
+                            all_meter_tariffs.append(MeterTariff(**point))
 
         except IndexError:
             pass
@@ -154,20 +158,23 @@ class TariffBetweenDataLoader(AbstractDataLoader):
     def get_meter_tariff(self, result_set, key):
         all_meter_tariffs = []
         try:
+            u_keys = list(set(key))
             for item in result_set.items():
-                if key == "*" or key == item[0][1]['id']:
-                    meter_tariffs = []
-                    all_meter_tariffs.append(meter_tariffs)
-                    points = list(item[1])
-                    for point in points:
-                        point['id'] = item[0][1]['id']
-                        point['tariff'] = item[0][1]['tariff']
-                        point['tax'] = item[0][1]['tax']
-                        point['type'] = item[0][1]['type']
-                        point['name'] = item[0][1]['name']
-                        point['rateid'] = item[0][1].get('rateid', '')
-                        meter_tariff = MeterTariff(**point)
-                        meter_tariffs.append(meter_tariff)
+                for u_key in u_keys:
+                    if u_key == "*" or u_key == item[0][1]['id']:
+                        meter_tariffs = []
+                        all_meter_tariffs.append(meter_tariffs)
+                        points = list(item[1])
+                        for point in points:
+                            point['id'] = item[0][1]['id']
+                            point['tariff'] = item[0][1]['tariff']
+                            point['tax'] = item[0][1]['tax']
+                            point['type'] = item[0][1]['type']
+                            point['name'] = item[0][1]['name']
+                            point['rateid'] = item[0][1].get('rateid', '')
+                            point['source'] = item[0][1]['source']
+                            meter_tariff = MeterTariff(**point)
+                            meter_tariffs.append(meter_tariff)
 
         except IndexError:
             pass

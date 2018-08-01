@@ -49,17 +49,17 @@ def resolve_meter_tariff_between(root, info, id, start, end):
 class Query(graphene.ObjectType):
     meterReading = graphene.List(graphene.List(MeterReading),
                                  resolver=resolve_meter_reading,
-                                 id=graphene.String())
+                                 id=graphene.List(graphene.String))
     meterReadingsBetween = graphene.List(graphene.List(MeterReading),
                                          resolver=resolve_meter_readings_between,
-                                         id=graphene.String(),
+                                         id=graphene.List(graphene.String),
                                          start=graphene.Float(),
                                          end=graphene.Float())
     meterTariff = graphene.List(MeterTariff,
                                 resolver=resolve_meter_tariff,
-                                id=graphene.String())
+                                id=graphene.List(graphene.String))
     meterTariffBetween = graphene.List(graphene.List(MeterTariff),
                                        resolver=resolve_meter_tariff_between,
-                                       id=graphene.String(),
+                                       id=graphene.List(graphene.String),
                                        start=graphene.Float(),
                                        end=graphene.Float())

@@ -4,3 +4,4 @@ Flask-Cors==3.0.6
 Flask-GraphQL==1.4.1
 graphene==2.1.2
 influxdb==5.2.0
+promise==2.1

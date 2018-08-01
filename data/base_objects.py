@@ -24,7 +24,7 @@ import graphene
 
 class MeterReadingBase(object):
     time = graphene.Float(required=True, description='Millisecond time to associate with the value')
-    source = graphene.String(required=True, description='Name of the module taking the reading')
+    module = graphene.String(required=True, description='Name of the module taking the reading')
     id = graphene.String(required=True, description='A normally unique id to identify the meter that read the value')
     reading = graphene.Float(required=True, description='A single value/reading that has been taken')
     unit = graphene.String(required=True, description='The units of the value/reading')
@@ -39,3 +39,4 @@ class MeterTariffBase(object):
     tax = graphene.String(required=True, description='The tax rate applied to the tariff')
     rateid = graphene.String(required=True, description='The id used to identify a differential rate')
     type = graphene.String(required=True, description='The type of tariff associated with the reading')
+    source = graphene.String(required=True, description='The source power type associated with the reading')

@@ -24,6 +24,7 @@ import threading
 import logging
 import time
 from promise.dataloader import DataLoader
+import queue
 
 
 def millis():
@@ -34,15 +35,40 @@ def sleep(seconds):
     return time.sleep(seconds)
 
 
-class AbstractDatabase(ABC):
+class AbstractDatabase(ABC, threading.Thread):
     @abstractmethod
-    def __init__(self, config):
+    def __init__(self, config, database_queue):
         super(AbstractDatabase, self).__init__()
+        threading.Thread.__init__(self)
+        self.terminate = threading.Event()
         self.config = config
+        self.queue = database_queue
 
     @abstractmethod
     def __del__(self):
         pass
+
+    def run(self):
+        # noinspection PyBroadException
+        try:
+            # All modules exist within a main loop that will only exit if the module is requested to terminate
+            # or it generates an error that causes it to terminate.
+            while not self.terminate.is_set():
+                try:
+                    data = self.queue.get(block=True, timeout=1)
+                    if data.get('meter_reading', None):
+                        self.write_meter_reading(data['meter_reading'])
+                    elif data.get('meter_tariff', None):
+                        self.write_meter_tariff(data['meter_tariff'])
+
+                except queue.Empty:
+                    pass
+
+            logging.info('Database "{}" is terminating following signal'.format(self.getName()))
+            self.__del__()
+
+        except Exception as e:
+            logging.error('Exception caught {}: {}'.format(type(e), str(e)))
 
     def write_meter_reading(self, meter_reading):
         logging.error(
@@ -53,34 +79,31 @@ class AbstractDatabase(ABC):
             'Unexpected invocation of abstract class method write_meter_reading '
             '- this should be overridden in concrete class')
 
-    def all_latest_meter_readings(self):
+    def write_meter_tariff(self, meter_tariff):
         logging.error(
             'Database implementation "{}" '
-            'unexpectedly called the default all_latest_measurements() method '
+            'unexpectedly called the default write_meter_tariff() method '
             '- this should be overridden'.format(self.config["type"]))
         raise NotImplementedError(
-            'Unexpected invocation of abstract class method all_latest_measurements '
+            'Unexpected invocation of abstract class method write_meter_tariff '
             '- this should be overridden in concrete class')
 
-    def all_meter_readings_between(self, start, end=None):
-        logging.error(
-            'Database implementation "{}" '
-            'unexpectedly called the default all_measurements_between() method '
-            '- this should be overridden'.format(self.config["type"]))
-        raise NotImplementedError(
-            'Unexpected invocation of abstract class method all_measurements_between '
-            '- this should be overridden in concrete class')
+
+def meter_reading(tariffs):
+    reading = 'positive'
+    if tariffs['source'] == 'grid' and tariffs['type'] == 'income':
+        reading = 'negative'
+    return reading
 
 
 class AbstractModule(ABC, threading.Thread):
     @abstractmethod
-    def __init__(self, module, schema, database, tariff):
+    def __init__(self, module, database_queue, tariff):
         super(AbstractModule, self).__init__()
         threading.Thread.__init__(self)
         self.terminate = threading.Event()
         self.module = module
-        self.schema = schema
-        self.database = database
+        self.queue = database_queue
         self.tariff = tariff
         self.lasttariff = dict()
 
@@ -96,7 +119,8 @@ class AbstractModule(ABC, threading.Thread):
             while not self.terminate.is_set():
                 self.process_outputs()
 
-            logging.info('Plugin "{}" is terminating following signal'.format(self.getName()))
+            logging.info('Module "{}" is terminating following signal'.format(self.getName()))
+            self.__del__()
         except Exception as e:
             logging.error('Exception caught {}: {}'.format(type(e), str(e)))
 
@@ -109,24 +133,10 @@ class AbstractModule(ABC, threading.Thread):
             '- this should be overridden in concrete class')
 
     def write_meter_reading(self, **kwargs):
-        result = self.schema.execute(
-            '''
-            mutation CreateMeterReading($reading: MeterReadingInput!) {
-                createMeterReading(meterReading: $reading) {
-                    time
-                }
-            }
-            ''',
-            variable_values={
-                "reading": kwargs
-            },
-            context_value={"database": self.database}
-        )
-        if result.errors:
-            logging.error(result.errors)
-            raise RuntimeError("Error in GraphQL mutation")
+        self.queue.put(dict(meter_reading=kwargs))
 
-        self.write_tariff(**kwargs)
+        if self.tariff:
+            self.write_tariff(**kwargs)
 
     def write_tariff(self, **kwargs):
         if self.lasttariff.get(kwargs['id'], None) is not None:
@@ -134,43 +144,27 @@ class AbstractModule(ABC, threading.Thread):
             tariff = dict(
                 time=self.lasttariff[kwargs['id']]['time'],
                 id=kwargs['id'],
+                name=self.lasttariff[kwargs['id']]['name'],
                 amount=abs((kwargs['reading'] / 1000) * self.lasttariff[kwargs['id']]['rate'] * delta),
                 tariff=self.lasttariff[kwargs['id']]['tariff'],
                 tax=self.lasttariff[kwargs['id']]['tax'],
+                rateid=self.lasttariff[kwargs['id']]['rateid'],
                 type=self.lasttariff[kwargs['id']]['type'],
-                name=self.lasttariff[kwargs['id']]['name'],
-                rateid=self.lasttariff[kwargs['id']]['rateid']
+                source=self.lasttariff[kwargs['id']]['source']
             )
             if tariff['amount'] > 0:
-                result = self.schema.execute(
-                    '''
-                    mutation CreateMeterTariff($tariff: MeterTariffInput!) {
-                        createMeterTariff(meterTariff: $tariff) {
-                            time
-                        }
-                    }
-                    ''',
-                    variable_values={
-                        "tariff": tariff
-                    },
-                    context_value={"database": self.database}
-                )
-                if result.errors:
-                    logging.error(result.errors)
-                    raise RuntimeError("Error in GraphQL mutation")
+                self.queue.put(dict(meter_tariff=tariff))
 
         for tariffs in [d for d in self.tariff
-                        if d['meter']['id'] == kwargs['id'] and d['meter']['source'] == kwargs['source']]:
-            meter_values = tariffs['meter'].get('meter_values', 'both')
+                        if d['id'] == kwargs['id'] and d['module'] == kwargs['module']]:
+            reading = meter_reading(tariffs)
 
             # While the if...else here looks to be doing the same thing
             # in each part they are processing different ids and hence
             # different tariff entries
-            if meter_values == 'negative' and kwargs['reading'] < 0:
+            if reading == 'negative' and kwargs['reading'] < 0:
                 self.process_tariff(tariffs, **kwargs)
-            elif meter_values == 'positive' and kwargs['reading'] >= 0:
-                self.process_tariff(tariffs, **kwargs)
-            elif meter_values == 'both':
+            if reading == 'positive' and kwargs['reading'] >= 0:
                 self.process_tariff(tariffs, **kwargs)
 
     def process_tariff(self, tariffs, **kwargs):
@@ -195,27 +189,11 @@ class AbstractModule(ABC, threading.Thread):
                                                  tax=tariffs['rate'][i]['tax'],
                                                  type=tariffs['type'],
                                                  name=tariffs['name'],
-                                                 rateid=tariffs['rate'][i].get('rateid', ''))
+                                                 rateid=tariffs['rate'][i].get('rateid', ''),
+                                                 source=tariffs['source'])
+
         except Exception:
             raise
-
-    def write_meter_tariff(self, **kwargs):
-        result = self.schema.execute(
-            '''
-            mutation CreateMeterTariff($reading: MeterTariffInput!) {
-                createMeterTariff(meterTariff: $tariff) {
-                    time
-                }
-            }
-            ''',
-            variable_values={
-                "tariff": kwargs
-            },
-            context_value={"database": self.database}
-        )
-        if result.errors:
-            logging.error(result.errors)
-            raise RuntimeError("Error in GraphQL mutation")
 
 
 class AbstractDataLoader(ABC, DataLoader):
