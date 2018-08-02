@@ -74,18 +74,18 @@ class Database(AbstractDatabase):
             self.connection.create_retention_policy('five_year', '260w', '1', name, False)
 
             # Create continuous queries to down sample into one year and five year retention policies
-            self.connection.query('create continuous query "reading_5m" on {} begin '
+            self.connection.query('create continuous query "reading_10m" on {} begin '
                                   'select mean(reading) as "reading"'
                                   'into "one_year"."downsampled_reading" '
-                                  'from reading group by *,time(5m) end'.format(name), database=name)
+                                  'from reading group by *,time(10m) end'.format(name), database=name)
             self.connection.query('create continuous query "reading_30m" on {} begin '
                                   'select mean(reading) as "reading"'
                                   'into "five_year"."downsampled_reading" '
                                   'from reading group by *,time(30m) end'.format(name), database=name)
-            self.connection.query('create continuous query "tariff_5m" on {} begin '
+            self.connection.query('create continuous query "tariff_10m" on {} begin '
                                   'select sum(amount) as "amount"'
                                   'into "one_year"."downsampled_tariff" '
-                                  'from tariff group by *,time(30m) fill(0) end'.format(name), database=name)
+                                  'from tariff group by *,time(10m) fill(0) end'.format(name), database=name)
             self.connection.query('create continuous query "tariff_30m" on {} begin '
                                   'select sum(amount) as "amount"'
                                   'into "five_year"."downsampled_tariff" '
