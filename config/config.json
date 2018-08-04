@@ -24,7 +24,14 @@
                             { "start": "00:00:00", "amount": 0.0186, "tax": "0%", "unit": "kWh" }
                         ]
                     }
-                ]
+                ],
+                "compare": {
+                    "name": "OVO Standard",
+                    "rate": [
+                        { "start": "00:00:00", "amount": 0.15, "tax": "5%" },
+                        { "start": "07:00:00", "amount": 0.13, "tax": "5%" }
+                    ]
+                }
             },
             {
                 "type": "solar",

@@ -117,7 +117,11 @@ CORS(app, resources={
 
 @app.route('/config/configuration')
 def configuration():
-    return jsonify(config['site'])
+    # This will always reload the configuration but it will
+    # not cause either the database or schema to be reloaded
+    # or re-injected. Changes to modules and/or database
+    # configuration will require a restart to take effect
+    return jsonify(read_config(args.config)['site'])
 
 
 @app.route(config.get('shutdown', '/shutdown'))
